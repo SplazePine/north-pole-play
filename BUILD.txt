@@ -1,21 +1,21 @@
-North Pole — Year 1, ¾ colony UI polish (t2092u)
-America/Chicago (CST). Rebuilt Saturday Nov 21, 2026, about 1:39 PM CST.
-Stage clock: polish + play-link update from 1:24 PM CST.
+North Pole — Year 1, official cover / title screen (t2107u, t2108u)
+America/Chicago (CST). Rebuilt Saturday Nov 21, 2026, about 4:06 PM CST.
 
 What changed
-  The crew strip is compact (56 px). The camera treats the area between the
-  top HUD and that strip as the play view, so the sleigh, wrap bench and
-  lower elves stay visible. You can still pan, including to the top of the
-  map. Default camera shows the yard.
-  Speed buttons, AGAIN / MENU and the report card use the gold mockup style.
-  The report is a compact gold-edged panel over an even dark veil. The
-  starter's leftover "II" pause chip is gone (gold PAUSE in the speed row
-  covers it; Esc still pauses).
-  SFX stay improved procedural placeholders, with a separate SFX volume in
-  Options. The ElevenLabs free library could not be reached with existing
-  MCP/API access (no catalog of Explore clips; generating would spend
-  credits, which was forbidden). Nothing was generated and nothing was spent.
-  See AUDIO-CREDITS.md and art/EL-LIBRARY-SEARCH.md.
+  The moonlit title painting Splaze approved (Krampus in the tree-corner,
+  candy-cane logo A) is now the official cover and the in-game title screen.
+  Krampus's cut-out edge was lightly blended into the night sky, and the
+  stray hair wisps in the patched sky were cleaned. Composition, crew and
+  logo placement are unchanged.
+  Official files:
+    art/cover/north-pole-official-cover-bg.png      (painting only)
+    art/cover/north-pole-official-cover.png         (logo + YEAR ONE, no buttons)
+    art/cover/north-pole-official-cover-no-year.png (logo only)
+  The title screen draws the painting and a 1280×720 candy-cane logo overlay
+  at native scale (no 320-buffer upscale, no smoothing when the canvas is
+  1280×720). The old yellow serif "NORTH POLE" logo is gone. PLAY, CONTINUE
+  and OPTIONS still work, as does the Esc menu (Music, SFX, Lighting).
+  SFX are unchanged (not wired in this update).
 
 How to play (web)
   Open game.html (or index.html). Click PLAY (or CONTINUE).
@@ -36,18 +36,20 @@ Rebuild from source (in the git repo, not required to play the zip)
   python3 tools/build.py
 
 Checks that ran
-  python3 tools/build.py                         ok (player 1,042,798 bytes / 644,804 gzip)
+  python3 tools/build.py                         ok (player 1,042,259 bytes / 644,675 gzip)
   node tools/sim/run-slice-checks.js             21/21
-  Seeded 120-day sims unchanged: hands-off C, careless D, decent B, sharp S
-  Mini Tier-1 (Playwright, 1280×720): gold PLAY, PLAY starts Year 1,
-    buffer 1280×720, Esc → paused, speed 3, no page errors or 4xx.
-    Crew bar 56 px; wrap/sleigh/cots sit in the play view. HUD reads
-    DAY n / 120. Gold speed buttons. SFX volume set/get still works.
-    ?shot=krampus toys=110, auto-paused. Report is a gold-edged panel
-    with gold AGAIN / outline MENU.
+  Mini Tier-1 (Playwright, 1280×720): candy-cane logo visible, gold PLAY,
+    PLAY starts Year 1, buffer native 1280×720, OPTIONS + BACK, Esc → paused,
+    speed 3, no page errors or 4xx. Crew bar 56 px; wrap/sleigh/cots sit in
+    the play view. SFX volume set/get still works. ?shot=krampus toys=110,
+    auto-paused. Report is a gold-edged panel with AGAIN / MENU; AGAIN fill
+    is gold (center sample hits the dark letter, not a fail).
   Official test/run-test.js full sitting was not re-run (15-minute days).
+  In-game title screenshot: art/keyframes/official-title.png (eye pass PASS).
 
 Known leftovers
+  A couple of faint residual hair marks in the sky right of Krampus are
+    visible only in a tight close-up; they do not read at title-screen size.
   Front-facing cutout stride is modest at game size (these are approved
     front portraits, not side-view walk sheets). Path walking is clear.
   Quitters are still static portraits (Limiter).
@@ -56,9 +58,9 @@ Known leftovers
   Day/night lanterns relight in code; daytime key frames do not show them.
   Cots still sit outside the right-hand shed (a new empty-map gen would be
     needed to match the Step 1 mockup exactly; not done as a cheap paint).
-  SFX stay procedural stubs — the ElevenLabs free library was not reachable
-    with existing access; no generation and no spend. See AUDIO-CREDITS.md.
+  SFX stay procedural stubs in this build — the ElevenLabs pack is not wired.
 
 Git
   Game repo: /workspace/gamedevbot/games/north-pole  branch main (local)
   Play repo: SplazePine/north-pole-play (unlisted GitHub Pages, robots noindex)
+  Live: https://splazepine.github.io/north-pole-play/

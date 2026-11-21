@@ -3230,7 +3230,8 @@ ST.SY = Math.floor(ST.BH * (ST.SAFE || 0.7));
 function loadImg(src) { const i = new Image(); i.src = src; return i; }
 const IMG = {
 village: loadImg("assets/year1/village.jpg"),
-title: loadImg("assets/year1/title.jpg"),
+title: loadImg("assets/year1/title.png"),
+titleLogo: loadImg("assets/year1/title-logo.png"),
 santa: loadImg("assets/year1/santa.png"),
 holly: loadImg("assets/year1/holly.png"),
 bram: loadImg("assets/year1/bram.png"),
@@ -3901,34 +3902,24 @@ const prev = ST.drawTitle;
 ST.drawTitle = () => {
 const c = ST.ctx, W = ST.cw, H = ST.ch;
 c.fillStyle = "#0c1418"; c.fillRect(0, 0, W, H);
-const im = IMG.title;
-if (im && im.complete && im.naturalWidth) {
-c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+const drawCover = (im) => {
+if (!im || !im.complete || !im.naturalWidth) return;
+const native = (im.naturalWidth === W && im.naturalHeight === H);
+c.imageSmoothingEnabled = !native;
+c.imageSmoothingQuality = "high";
+if (native) {
+c.drawImage(im, 0, 0);
+} else {
 const s = Math.max(W / im.naturalWidth, H / im.naturalHeight);
 const w = im.naturalWidth * s, h = im.naturalHeight * s;
 c.drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
 }
-const gdt = c.createLinearGradient(0, 0, 0, H * 0.28);
-gdt.addColorStop(0, "rgba(8,16,28,0.45)"); gdt.addColorStop(1, "rgba(8,16,28,0)");
-c.fillStyle = gdt; c.fillRect(0, 0, W, H * 0.28);
+};
+drawCover(IMG.title);
+drawCover(IMG.titleLogo);
 const bot = c.createLinearGradient(0, H * 0.72, 0, H);
 bot.addColorStop(0, "rgba(18,22,28,0)"); bot.addColorStop(1, "rgba(18,22,28,0.82)");
 c.fillStyle = bot; c.fillRect(0, H * 0.70, W, H * 0.30);
-const size = Math.max(28, Math.min(84, Math.round(W * 0.07)));
-c.save();
-c.font = "bold " + size + "px Georgia, 'Times New Roman', serif";
-c.textAlign = "center"; c.textBaseline = "top";
-c.lineJoin = "round";
-const lx = W / 2, ly = H * 0.06;
-c.lineWidth = Math.max(4, size * 0.08);
-c.strokeStyle = "#10201e";
-c.strokeText("NORTH POLE", lx, ly);
-c.fillStyle = "#e8c96e";
-c.fillText("NORTH POLE", lx, ly);
-c.font = "600 " + Math.max(11, Math.round(size * 0.22)) + "px Georgia, 'Times New Roman', serif";
-c.fillStyle = "#f4efe4";
-c.fillText("YEAR ONE", lx, ly + size + 8);
-c.restore();
 if (titleOptions) {
 c.fillStyle = "rgba(10,16,18,0.78)";
 const px = W * 0.18, py = H * 0.28, pw = W * 0.64, ph = H * 0.48;
