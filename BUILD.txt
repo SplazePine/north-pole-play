@@ -1,66 +1,52 @@
-North Pole — Year 1, official cover / title screen (t2107u, t2108u)
-America/Chicago (CST). Rebuilt Saturday Nov 21, 2026, about 4:06 PM CST.
+North Pole — Year 1, tutorial + Esc settings + ElevenLabs SFX (t2113u)
+America/Chicago (CST). Rebuilt Saturday Nov 21, 2026, about 5:00 PM CST.
 
 What changed
-  The moonlit title painting Splaze approved (Krampus in the tree-corner,
-  candy-cane logo A) is now the official cover and the in-game title screen.
-  Krampus's cut-out edge was lightly blended into the night sky, and the
-  stray hair wisps in the patched sky were cleaned. Composition, crew and
-  logo placement are unchanged.
-  Official files:
-    art/cover/north-pole-official-cover-bg.png      (painting only)
-    art/cover/north-pole-official-cover.png         (logo + YEAR ONE, no buttons)
-    art/cover/north-pole-official-cover-no-year.png (logo only)
-  The title screen draws the painting and a 1280×720 candy-cane logo overlay
-  at native scale (no 320-buffer upscale, no smoothing when the canvas is
-  1280×720). The old yellow serif "NORTH POLE" logo is gone. PLAY, CONTINUE
-  and OPTIONS still work, as does the Esc menu (Music, SFX, Lighting).
-  SFX are unchanged (not wired in this update).
+  Tutorial (t2110u / t2113u): six skippable first-day steps, drawn in the
+  official gold UI and driven by Tutorspell (tools/data/game.tutor). It offers
+  itself on a new game, never locks the clock, and never blocks the click or
+  pan it is teaching. Skip dismisses the whole intro and is remembered.
+  Replay Tutorial lives in title OPTIONS and the in-play Esc menu.
+  ?tutor=1 forces it; ?tutor=0 turns it off (shots and smokes).
+
+  Esc menu: the in-play pause screen is a gold panel with Music volume, SFX
+  volume, Lighting (same storage as title OPTIONS), Replay Tutorial, Resume
+  and Menu, plus an ElevenLabs credit line. Esc still deselects first when
+  an elf is selected.
+
+  Sound effects: the 13 ElevenLabs picks (tap, assign, jam, fix take 2,
+  snack, raid, footprints, quit, eve-sleigh, report, bell, walk loop,
+  next-day) are on the Assetspell sfx bus, with compact mp3 + ogg in
+  assets/sfx/. Procedural stubs remain as a fallback. The walk loop is
+  quiet and will not stack.
+
+  Also: clicking a job while an elf is selected now assigns even if another
+  elf is standing on that station (the verb is pick an elf, then a job).
 
 How to play (web)
   Open game.html (or index.html). Click PLAY (or CONTINUE).
-  Click a crew portrait, then a station on the map. Drag or arrows pan.
-  Speed buttons (or 1/2/3/5/0 keys; Space pauses) run or pause the day.
-  Esc opens the menu with Music, SFX and Lighting.
-
-How to play (Linux)
-  From this folder:  ./run.sh
-  Or open game.html in Firefox / Chrome yourself.
+  A short tutorial appears on a new game; Skip is always visible.
+  Click a crew portrait or an elf in the yard, then a station on the map.
+  Drag or arrows pan. Speed buttons (or 1/2/3/5/0 keys; Space pauses).
+  Esc deselects, or opens the pause menu when no elf is selected.
 
 Dev testing
   Open game.html?dev=1 for +1D, +7D, +SEASON, DEC, EVE and 60× warp buttons.
   ?shot=spring|prints|krampus|december|eve|report freezes a key moment.
   ?walk=1 starts Holly walking wrap → bell (for the walk strip).
+  ?tutor=1 forces the tutorial; ?tutor=0 hides it.
+  node tools/sim/select-assign-smoke.js
+  node tools/sim/title-move-smoke.js --out art/eye-pass/t2110/after --check
+  node tools/sim/tutorial-esc-sfx-smoke.js --out art/eye-pass/t2113
 
 Rebuild from source (in the git repo, not required to play the zip)
   python3 tools/build.py
 
 Checks that ran
-  python3 tools/build.py                         ok (player 1,042,259 bytes / 644,675 gzip)
+  python3 tools/build.py                         ok (player 1,079,331 bytes / 654,049 gzip)
   node tools/sim/run-slice-checks.js             21/21
-  Mini Tier-1 (Playwright, 1280×720): candy-cane logo visible, gold PLAY,
-    PLAY starts Year 1, buffer native 1280×720, OPTIONS + BACK, Esc → paused,
-    speed 3, no page errors or 4xx. Crew bar 56 px; wrap/sleigh/cots sit in
-    the play view. SFX volume set/get still works. ?shot=krampus toys=110,
-    auto-paused. Report is a gold-edged panel with AGAIN / MENU; AGAIN fill
-    is gold (center sample hits the dark letter, not a fail).
-  Official test/run-test.js full sitting was not re-run (15-minute days).
-  In-game title screenshot: art/keyframes/official-title.png (eye pass PASS).
-
-Known leftovers
-  A couple of faint residual hair marks in the sky right of Krampus are
-    visible only in a tight close-up; they do not read at title-screen size.
-  Front-facing cutout stride is modest at game size (these are approved
-    front portraits, not side-view walk sheets). Path walking is clear.
-  Quitters are still static portraits (Limiter).
-  Crew-bar names use the small pixel font and are a little crunchy in the
-    compact 56 px strip.
-  Day/night lanterns relight in code; daytime key frames do not show them.
-  Cots still sit outside the right-hand shed (a new empty-map gen would be
-    needed to match the Step 1 mockup exactly; not done as a cheap paint).
-  SFX stay procedural stubs in this build — the ElevenLabs pack is not wired.
-
-Git
-  Game repo: /workspace/gamedevbot/games/north-pole  branch main (local)
-  Play repo: SplazePine/north-pole-play (unlisted GitHub Pages, robots noindex)
-  Live: https://splazepine.github.io/north-pole-play/
+  node tools/sim/select-assign-smoke.js          49/49
+  node tools/sim/title-move-smoke.js --check     title dest + buttons visible (69/69)
+  node tools/sim/tutorial-esc-sfx-smoke.js       20/20
+  Eye-pass: art/eye-pass/t2113/tutorial-step-assign.png
+            art/eye-pass/t2113/esc-menu.png
