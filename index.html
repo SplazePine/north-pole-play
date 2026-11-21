@@ -1,0 +1,2798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>North Pole (player)</title>
+<link rel="icon" href="data:,">
+<meta name="robots" content="noindex">
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#142428;
+            touch-action:none;overscroll-behavior:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  canvas{display:block;width:100%;height:100%;outline:none;image-rendering:pixelated}
+  #loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+           background:#142428;color:#e8c36a;font:bold 18px monospace;z-index:9;text-align:center}
+  #loading .dot{width:12px;height:12px;margin-top:12px;background:#e8c36a;animation:b .5s infinite alternate}
+  @keyframes b{to{transform:translateY(-12px)}}
+  #loading.off{display:none}
+  .ctl{position:fixed;top:2px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+       border:0;border-radius:10px;background:rgba(20,36,40,.55);color:#fff;font:20px system-ui,sans-serif;
+       text-decoration:none;cursor:pointer;padding:0;z-index:5;-webkit-tap-highlight-color:transparent}
+  #mute{right:2px}
+  #open{left:2px;display:none}
+  html.framed #open{display:flex}
+  html.card #open,html.card #mute{display:none}
+</style>
+</head>
+<body>
+<div id="loading">North Pole<div class="dot"></div></div>
+<canvas id="c" tabindex="0" aria-label="North Pole Year 1. Assign elves to stations, then watch Christmas Eve. Arrows or drag move the overseer cursor. Escape opens the menu."></canvas>
+<button id="mute" class="ctl" data-control aria-label="Sound" aria-pressed="false">🔊</button>
+<a id="open" class="ctl" data-control href="game.html?v=1" aria-label="Open the game in a new tab">↗</a>
+<script>
+"use strict";
+const ST = self.ST = { cfg: {"slug":"north-pole","title":"North Pole","v":1,"music":false,"addons":["tunescript","menuspell","savespell","shell","assets","jukebox"],"render3d":{"dpr_cap":1.25,"floor":0.55}}, TEST_BUILD: false, Q: new URLSearchParams(location.search), sw: {}, switched: false };
+ST.FONT = {"A":".###./#...#/#...#/#####/#...#/#...#/#...#","B":"####./#...#/#...#/####./#...#/#...#/####.","C":".###./#...#/#..../#..../#..../#...#/.###.","D":"####./#...#/#...#/#...#/#...#/#...#/####.","E":"#####/#..../#..../####./#..../#..../#####","F":"#####/#..../#..../####./#..../#..../#....","G":".###./#...#/#..../#.###/#...#/#...#/.####","H":"#...#/#...#/#...#/#####/#...#/#...#/#...#","I":"###/.#./.#./.#./.#./.#./###","J":"..###/...#./...#./...#./#..#./#..#./.##..","K":"#...#/#..#./#.#../##.../#.#../#..#./#...#","L":"#..../#..../#..../#..../#..../#..../#####","M":"#...#/##.##/#.#.#/#.#.#/#...#/#...#/#...#","N":"#...#/##..#/#.#.#/#..##/#...#/#...#/#...#","O":".###./#...#/#...#/#...#/#...#/#...#/.###.","P":"####./#...#/#...#/####./#..../#..../#....","Q":".###./#...#/#...#/#...#/#.#.#/#..#./.##.#","R":"####./#...#/#...#/####./#.#../#..#./#...#","S":".####/#..../#..../.###./....#/....#/####.","T":"#####/..#../..#../..#../..#../..#../..#..","U":"#...#/#...#/#...#/#...#/#...#/#...#/.###.","V":"#...#/#...#/#...#/#...#/#...#/.#.#./..#..","W":"#...#/#...#/#...#/#.#.#/#.#.#/#.#.#/.#.#.","X":"#...#/#...#/.#.#./..#../.#.#./#...#/#...#","Y":"#...#/#...#/.#.#./..#../..#../..#../..#..","Z":"#####/....#/...#./..#../.#.../#..../#####","0":".###./#...#/#..##/#.#.#/##..#/#...#/.###.","1":".#./##./.#./.#./.#./.#./###","2":".###./#...#/....#/...#./..#../.#.../#####","3":"####./....#/....#/.###./....#/....#/####.","4":"...#./..##./.#.#./#..#./#####/...#./...#.","5":"#####/#..../####./....#/....#/#...#/.###.","6":".###./#..../#..../####./#...#/#...#/.###.","7":"#####/....#/...#./..#../.#.../.#.../.#...","8":".###./#...#/#...#/.###./#...#/#...#/.###.","9":".###./#...#/#...#/.####/....#/....#/.###.",".":"./././././.#",",":"../../../../../.#/#.","!":"#/#/#/#/#/./#","?":".###./#...#/....#/...#./..#../...../..#..",":":"./././#/./#/.","-":".../.../.../###/.../.../...","+":"...../..#../..#../#####/..#../..#../.....","/":"....#/...#./...#./..#../.#.../.#.../#....","%":"##..#/##..#/...#./..#../.#.../#..##/#..##","'":"#/#/./././././","&":".##../#..#./#.#../.#.../#.#.#/#..#./.##.#","(":".#/#./#./#./#./#./.#",")":"#./.#/.#/.#/.#/.#/#.",">":"#.../.#../..#./...#/..#./.#../#...","<":"...#/..#./.#../#.../.#../..#./...#","=":"..../..../####/..../####/..../....","x":"...../...../#...#/.#.#./..#../.#.#./#...#"};
+ST.SAFE = 0.7;                                   // X can cover the bottom 30% on phones: no text or buttons down there
+ST.root = document.documentElement;
+ST.canvas = document.getElementById("c");
+ST.ctx = ST.canvas.getContext("2d", { alpha: false });
+ST.framed = true;
+try { ST.framed = window.self !== window.top; } catch (e) {}
+ST.root.classList.toggle("framed", ST.framed);
+document.addEventListener("click", e => {        // links ALWAYS open a new tab (never replace the game inside X)
+const a = e.target.closest && e.target.closest("a[href]");
+if (!a) return; e.preventDefault(); window.open(a.href, "_blank", "noopener");
+}, true);
+ST.mk = (w, h) => { const c = document.createElement("canvas"); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; };
+ST.DPR = () => Math.min(window.devicePixelRatio || 1, 3);
+ST.cw = 0; ST.ch = 0; ST.L = 0; ST.small = false; ST.fs = 1; ST.BW = 160; ST.BH = 160; ST.sc = 1;
+ST.buf = null; ST.g = null;
+ST.resize = () => {
+if (!innerWidth || !innerHeight) return;       // frames can be 0x0 for a moment; the loop tries again next frame
+const S = ST; S.cw = innerWidth; S.ch = innerHeight;
+S.canvas.width = Math.round(S.cw * S.DPR()); S.canvas.height = Math.round(S.ch * S.DPR());
+S.small = S.ch <= 300 || S.cw <= 360;
+S.root.classList.toggle("card-small", S.small);
+S.L = Math.floor(S.ch * S.SAFE);
+S.fs = S.cw >= 420 ? 2 : S.cw >= 300 ? 1.5 : 1;
+S.BW = 160; S.BH = Math.max(90, Math.min(220, Math.round(160 * S.ch / S.cw))); S.sc = S.cw / S.BW;
+if (!S.buf || S.buf.width !== S.BW || S.buf.height !== S.BH) { S.buf = S.mk(S.BW, S.BH); S.g = S.buf.getContext("2d"); }
+S.SY = Math.floor(S.BH * S.SAFE);              // the safe line in buffer pixels
+if (S.onResize) S.onResize();
+};
+ST.R = (x, y, w, h, c) => { const g = ST.g; g.fillStyle = c; g.fillRect(x | 0, y | 0, Math.max(0, w | 0), Math.max(0, h | 0)); };
+ST.px = (x, y, c) => ST.R(x, y, 1, 1, c);
+ST.ell = (cx, cy, rx, ry, c) => { for (let y = -ry; y <= ry; y++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry || 1)))); ST.R(cx - w, cy + y, 2 * w + 1, 1, c); } };
+ST.dots = (x, y, w, h, c, step = 2, off = 0) => { for (let j = 0; j < h; j++) for (let i = (j + off) % step; i < w; i += step) ST.px(x + i, y + j, c); };
+ST.spr = (rows, x, y, pal, s = 1) => {             // rows = ["..ab..", ...], pal = { a: "#fff" }
+for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) { const k = rows[j][i]; if (k !== "." && pal[k]) ST.R(x + i * s, y + j * s, s, s, pal[k]); }
+};
+ST.present = () => {                              // buffer -> screen, crisp
+const c = ST.ctx; c.imageSmoothingEnabled = false; c.drawImage(ST.buf, 0, 0, ST.cw, ST.ch);
+};
+ST.toBuf = (x, y) => ({ x: x / ST.sc, y: y * ST.BH / ST.ch });
+ST.uiBottom = 0; ST.trackUI = true;
+ST.uiTexts = []; ST.hud = []; ST.hudMode = false;
+ST.hudRect = (x, y, w, h) => { if (ST.hudMode) ST.hud.push({ x, y, w, h }); };
+const gwid = c => { const f = ST.FONT[c]; return f ? f.split("/")[0].length : 3; };
+ST.tw = (s, fs) => { let w = 0; for (const c of String(s).toUpperCase()) w += c === " " ? 4 : gwid(c) + 1; return Math.max(0, w - 1) * fs; };
+ST.wrap = (s, maxW, fs) => {
+const words = String(s).toUpperCase().split(/\s+/).filter(Boolean), out = []; let cur = "";
+for (const w of words) { const t = cur ? cur + " " + w : w; if (ST.tw(t, fs) <= maxW || !cur) cur = t; else { out.push(cur); cur = w; } }
+if (cur) out.push(cur); return out;
+};
+ST.text = (s, x, y, color, fs = ST.fs, align = "l", shadow = "#000") => {
+s = String(s).toUpperCase(); const W = ST.tw(s, fs), c = ST.ctx;
+if (align === "c") x -= W / 2; else if (align === "r") x -= W;
+for (const [col, o] of shadow ? [[shadow, Math.max(1, Math.round(fs / 1.5))], [color, 0]] : [[color, 0]]) {
+c.fillStyle = col; c.beginPath(); let cx = x + o;
+for (const ch of s) {
+if (ch === " ") { cx += 4 * fs; continue; }
+const f = ST.FONT[ch]; if (!f) { cx += 4 * fs; continue; }
+const rows = f.split("/");
+for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) if (rows[j][i] === "#") c.rect(cx + i * fs, y + o + j * fs, fs, fs);
+cx += (rows[0].length + 1) * fs;
+}
+c.fill();
+}
+if (ST.trackUI) { ST.uiBottom = Math.max(ST.uiBottom, y + 7 * fs + 2); ST.uiTexts.push({ s, x, y, w: W, h: 7 * fs }); }
+ST.hudRect(x, y, W, 7 * fs);
+return W;
+};
+ST.btns = [];
+ST.theme = { fill: "#2a1830", edge: "#f2a444", on: "#f2a444", text: "#f3e4cc", dark: "#0a0610" };
+ST.box = (x, y, w, h, fill, edge) => {
+const c = ST.ctx; c.fillStyle = ST.theme.dark; c.fillRect(x - 1, y - 1, w + 2, h + 2);
+c.fillStyle = edge; c.fillRect(x, y, w, h); c.fillStyle = fill; c.fillRect(x + 2, y + 2, w - 4, h - 4);
+if (ST.trackUI) ST.uiBottom = Math.max(ST.uiBottom, y + h + 1);
+ST.hudRect(x - 1, y - 1, w + 2, h + 2);
+};
+ST.button = (id, x, y, w, h, label, o = {}) => {
+w = Math.max(44, w); h = Math.max(44, h);
+ST.btns.push({ id, x, y, w, h, label: String(label) });
+ST.box(x, y, w, h, o.on ? ST.theme.on : ST.theme.fill, o.edge || ST.theme.edge);
+let fs = o.fs || ST.fs; while (fs > 1 && ST.tw(label, fs) > w - 8) fs -= 0.5;
+ST.text(label, x + w / 2, y + (h - 7 * fs) / 2, o.on ? ST.theme.dark : ST.theme.text, fs, "c", o.on ? null : "#000");
+return { x, y, w, h };
+};
+ST.hitBtn = (x, y) => { for (let i = ST.btns.length - 1; i >= 0; i--) { const q = ST.btns[i]; if (x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h) return q; } return null; };
+ST.seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+ST.rand = () => { ST.seed = (ST.seed * 1664525 + 1013904223) >>> 0; return ST.seed / 4294967296; };
+ST.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+ST.store = (() => {
+let ok = false; const mem = {};
+try { const k = "__st_probe"; localStorage.setItem(k, "1"); ok = localStorage.getItem(k) === "1"; localStorage.removeItem(k); } catch (e) { ok = false; }
+return {
+get ok() { return ok; },
+get(key, def) {
+let raw = null;
+if (ok) { try { raw = localStorage.getItem(key); } catch (e) { ok = false; } }
+if (raw == null) raw = mem[key] == null ? null : mem[key];
+if (raw == null) return def;
+try { return JSON.parse(raw); } catch (e) { return def; }
+},
+set(key, val) {
+if (ST.switched) return false;
+const raw = JSON.stringify(val); mem[key] = raw;
+if (ok) { try { localStorage.setItem(key, raw); return true; } catch (e) { ok = false; } }
+return false;
+},
+};
+})();
+ST.save = {
+key: () => ST.cfg.slug + "-v1", data: {},
+load(defaults) { const o = ST.store.get(this.key(), null); this.data = Object.assign({}, defaults, o && typeof o === "object" ? o : {}); return this.data; },
+write() { return ST.store.set(this.key(), this.data); },
+};
+ST.sound = { on: false, muted: false, music: null, ac: null, master: null, SFX: {} };
+ST.sound.muted = ST.store.get(ST.cfg.slug + "-muted", false) === true;
+ST.muteBtn = document.getElementById("mute");
+ST.showMute = () => { const b = ST.muteBtn, m = ST.sound.muted; if (!b) return; b.textContent = m ? "🔇" : "🔊"; b.setAttribute("aria-pressed", String(m)); b.setAttribute("aria-label", m ? "Turn sound on" : "Turn sound off"); };
+ST.showMute();
+ST.startSound = () => {                            // runs INSIDE a tap (pointerup / touchend / click / key)
+const S = ST.sound;
+if (ST.sw.card) return;
+if (S.on) { if (S.music && S.music.paused && !document.hidden && ST.scene !== "paused") S.music.play().catch(() => {}); return; }
+S.on = true;
+try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+if (ST.cfg.music) {
+S.music = new Audio("music.wav?v=" + ST.cfg.v); S.music.loop = true; S.music.volume = 0.35; S.music.muted = S.muted; S.music.setAttribute("playsinline", "");
+S.music.play().catch(() => {});
+}
+try { S.ac = new (window.AudioContext || window.webkitAudioContext)(); S.master = S.ac.createGain(); S.master.gain.value = S.muted ? 0 : 0.5; S.master.connect(S.ac.destination); S.ac.resume(); } catch (e) { S.ac = null; }
+};
+ST.setMuted = m => {
+const S = ST.sound; S.muted = m; ST.store.set(ST.cfg.slug + "-muted", m);
+if (S.music) S.music.muted = m; if (S.master) S.master.gain.value = m ? 0 : 0.5; ST.showMute();
+};
+ST.tone = (f1, f2, len, type = "square", vol = 0.05, delay = 0) => {
+const S = ST.sound; if (!S.ac || S.muted || document.hidden) return;
+try {
+const t = S.ac.currentTime + delay, o = S.ac.createOscillator(), gn = S.ac.createGain();
+o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + len);
+gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.001, t + len);
+o.connect(gn); gn.connect(S.master); o.start(t); o.stop(t + len + 0.02);
+} catch (e) {}
+};
+ST.sfx = name => { const f = ST.sound.SFX[name]; if (f) f(ST.tone); };
+for (const type of ["pointerup", "touchend", "click", "keydown"])
+addEventListener(type, e => { if (e.target !== ST.muteBtn) ST.startSound(); }, { capture: true, passive: true });
+if (ST.muteBtn) ST.muteBtn.addEventListener("click", () => { if (!ST.sound.on) { ST.setMuted(false); ST.startSound(); } else ST.setMuted(!ST.sound.muted); });
+document.addEventListener("visibilitychange", () => {
+const m = ST.sound.music; if (!m) return;
+if (document.hidden) m.pause(); else if (ST.scene !== "paused") m.play().catch(() => {});
+});
+ST.keys = new Set();
+ST.drag = { on: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 };
+ST.JOY_R = 28;                                    // joystick radius in CSS px
+ST.pad = { ok: true, connected: false, errors: 0, x: 0, y: 0, held: {} };
+ST.inputStats = { clears: 0, last: "" };
+let downP = null;
+ST.clearInput = why => {
+ST.keys.clear(); downP = null;
+if (ST.drag.on) { try { ST.canvas.releasePointerCapture(ST.drag.id); } catch (e) {} }
+ST.drag.on = false; ST.drag.id = -1;
+ST.pad.held = { a: true, start: true };         // a button already down must be released before it counts again
+ST.inputStats.clears++; ST.inputStats.last = why || "";
+};
+ST.canvas.addEventListener("pointerdown", e => {
+e.preventDefault(); ST.canvas.focus({ preventScroll: true });
+downP = { x: e.clientX, y: e.clientY, id: e.pointerId, t: performance.now(), moved: false, onBtn: !!ST.hitBtn(e.clientX, e.clientY) };
+if (ST.scene === "play" && !downP.onBtn && (e.pointerType !== "mouse" || e.button === 0)) {
+try { ST.canvas.setPointerCapture(e.pointerId); } catch (er) {}
+Object.assign(ST.drag, { on: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY });
+}
+});
+ST.canvas.addEventListener("pointermove", e => {
+if (downP && e.pointerId === downP.id && Math.hypot(e.clientX - downP.x, e.clientY - downP.y) > 12) downP.moved = true;
+if (ST.drag.on && e.pointerId === ST.drag.id) { ST.drag.x = e.clientX; ST.drag.y = e.clientY; }
+});
+function pointerEnd(e) {
+if (e.pointerId === ST.drag.id) { ST.drag.on = false; ST.drag.id = -1; }
+const d = downP; if (!d || d.id !== e.pointerId) return; downP = null;
+if (d.moved || performance.now() - d.t > 600) return;
+ST.tapAt(e.clientX, e.clientY);
+}
+ST.canvas.addEventListener("pointerup", pointerEnd);
+ST.canvas.addEventListener("pointercancel", () => ST.clearInput("pointercancel"));        // the browser/app took the touch
+ST.canvas.addEventListener("lostpointercapture", e => { if (ST.drag.on && e.pointerId === ST.drag.id) ST.clearInput("lostpointercapture"); });
+ST.canvas.addEventListener("contextmenu", e => { e.preventDefault(); ST.clearInput("contextmenu"); });
+addEventListener("blur", () => ST.clearInput("blur"));
+addEventListener("pagehide", () => ST.clearInput("pagehide"));
+document.addEventListener("visibilitychange", () => { if (document.hidden) ST.clearInput("hidden"); });
+ST.readPad = () => {
+const P = ST.pad; P.x = 0; P.y = 0; P.connected = false;
+if (!P.ok) return;
+let list = null;
+try {
+if (typeof navigator.getGamepads !== "function") { P.ok = false; return; }
+list = navigator.getGamepads();
+} catch (e) { if (++P.errors >= 3) P.ok = false; return; }
+try {
+for (const g of list || []) {
+if (!g || g.connected === false) continue;
+P.connected = true;
+const ax = g.axes || [], bt = g.buttons || [], on = i => !!(bt[i] && (bt[i].pressed || bt[i].value > 0.5));
+let x = +ax[0] || 0, y = +ax[1] || 0; if (Math.hypot(x, y) < 0.25) { x = 0; y = 0; }
+if (on(14)) x = -1; if (on(15)) x = 1; if (on(12)) y = -1; if (on(13)) y = 1;
+P.x = x; P.y = y;
+for (const [k, i, code] of [["a", 0, "Enter"], ["start", 9, "KeyP"]]) {
+const down = on(i); if (down && !P.held[k] && !document.hidden) ST.onKey(code); P.held[k] = down;
+}
+break;
+}
+} catch (e) { if (++P.errors >= 3) P.ok = false; }
+};
+ST.dir = () => {                                   // {x, y} in -1..1 from keys, the drag joystick or a gamepad
+const k = ST.keys; let x = 0, y = 0;
+if (k.has("ArrowLeft") || k.has("KeyA")) x -= 1; if (k.has("ArrowRight") || k.has("KeyD")) x += 1;
+if (k.has("ArrowUp") || k.has("KeyW")) y -= 1; if (k.has("ArrowDown") || k.has("KeyS")) y += 1;
+if (!x && !y) { x = ST.pad.x; y = ST.pad.y; }
+if (ST.drag.on) {
+const vx = ST.drag.x - ST.drag.ox, vy = ST.drag.y - ST.drag.oy, l = Math.hypot(vx, vy);
+if (l > 6) { const m = Math.min(1, l / ST.JOY_R); x = vx / l * m; y = vy / l * m; }
+}
+const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; }
+return { x, y };
+};
+ST.drawJoy = () => {                               // the joystick ring, kept above the 70% line
+if (!ST.drag.on) return; const c = ST.ctx, jx = ST.clamp(ST.drag.ox, 30, ST.cw - 30), jy = Math.min(ST.drag.oy, ST.L - 30);
+const d = ST.dir(); c.strokeStyle = "rgba(243,228,204,.45)"; c.lineWidth = 2; c.beginPath(); c.arc(jx, jy, ST.JOY_R, 0, 7); c.stroke();
+c.fillStyle = "rgba(243,228,204,.5)"; c.beginPath(); c.arc(jx + d.x * ST.JOY_R, jy + d.y * ST.JOY_R, 9, 0, 7); c.fill();
+};
+addEventListener("keydown", e => {
+if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+if (e.repeat) return;
+ST.keys.add(e.code);
+ST.onKey(e.code);
+});
+addEventListener("keyup", e => ST.keys.delete(e.code));
+ST.scene = "title"; ST.sceneT = 0; ST.seq = 0;
+ST.go = s => {
+ST.scene = s; ST.sceneT = 0; ST.seq++; ST.drag.on = false; ST.keys.clear();
+const m = ST.sound.music; if (m) { if (s === "paused") m.pause(); else if (!document.hidden) m.play().catch(() => {}); }
+};
+ST.start = () => { ST.save.data.plays = (ST.save.data.plays || 0) + 1; ST.save.write(); if (ST.sw.seed) ST.seed = ST.sw.seed >>> 0; ST.G.start(); ST.startSeed = ST.seed; ST.go("play"); ST.sfx("start"); };
+ST.end = () => { ST.overInfo = ST.G.over(); ST.go("over"); ST.sfx(ST.overInfo.win ? "win" : "lose"); };
+ST.press = id => {
+if (id === "play" || id === "again") ST.start();
+else if (id === "pause") { ST.go("paused"); ST.sfx("tap"); }
+else if (id === "resume") { ST.go("play"); ST.sfx("tap"); }
+else if (id === "menu") { ST.go("title"); ST.sfx("tap"); }
+else if (ST.G.button) ST.G.button(id);
+};
+ST.tapAt = (x, y) => {
+if (ST.scene === "over" && ST.sceneT < 0.4) return;        // no accidental "again" from the last frantic tap
+const b = ST.hitBtn(x, y);
+if (b) { ST.seq++; ST.press(b.id); return; }
+if (ST.scene === "play" && ST.G.tap && ST.G.tap(x, y)) ST.seq++;
+};
+ST.onKey = code => {
+const ok = code === "Enter" || code === "Space";
+if (ST.sw.tour && code === "F8" && ST.scene === "play") { ST.seq++; ST.end(); return; }   // robot screen tour only
+if (ST.scene === "title" && ok && !ST.sw.card) { ST.seq++; ST.start(); }
+else if (ST.scene === "play" && (code === "KeyP" || code === "Escape")) { ST.seq++; ST.press("pause"); }
+else if (ST.scene === "paused" && (ok || code === "KeyP" || code === "Escape")) { ST.seq++; ST.press("resume"); }
+else if (ST.scene === "over" && ok && ST.sceneT > 0.6) { ST.seq++; ST.press("again"); }
+else if (ST.G.key) { if (ST.G.key(code)) ST.seq++; }
+};
+ST.row = (list, y) => {
+const gap = 8, h = ST.small ? 46 : 52, w = Math.min(ST.small ? 130 : 170, (ST.cw - 16 - gap * (list.length - 1)) / list.length);
+let x = (ST.cw - (w * list.length + gap * (list.length - 1))) / 2;
+for (const b of list) { ST.button(b.id, x, y, w, h, b.label, { on: b.on }); x += w + gap; }
+return y + h;
+};
+ST.lines = (lines, y, color, fs) => {
+for (const l of lines) for (const ln of ST.wrap(l, ST.cw - 24, fs)) { ST.text(ln, ST.cw / 2, y, color, fs, "c"); y += 7 * fs + Math.max(3, fs * 2); }
+return y;
+};
+ST.veil = a => { ST.ctx.fillStyle = `rgba(10,6,16,${a})`; ST.ctx.fillRect(0, 0, ST.cw, ST.ch); };
+ST.drawTitle = () => {
+const T = ST.G.title, big = ST.fs * 1.5;
+let y = ST.small ? 50 : 60;
+ST.text(T.name, ST.cw / 2, y, ST.theme.on, big, "c"); y += 7 * big + (ST.small ? 6 : 12);
+y = ST.lines(T.lines || [], y, ST.theme.text, ST.small ? 1 : ST.fs * 0.75) + (ST.small ? 4 : 10);
+if (ST.sw.card) { ST.text(T.cardLine || "PLAY IT RIGHT HERE IN THE POST", ST.cw / 2, y + 8, ST.theme.text, ST.fs, "c"); return; }
+y = ST.row([{ id: "play", label: "PLAY" }, ...(T.extra || []).map(b => ({ id: b.id, label: b.label(), on: b.on && b.on() }))], y);
+if (T.footer) { const f = T.footer(); if (f) ST.text(f, ST.cw / 2, y + 8, ST.theme.text, ST.small ? 1 : ST.fs * 0.75, "c"); }
+};
+ST.drawPauseBtn = () => ST.button("pause", ST.cw - 96, 2, 44, 44, "II");
+ST.drawPaused = () => {
+ST.veil(0.72);
+const y = ST.small ? 56 : 90;
+ST.text("PAUSED", ST.cw / 2, y, ST.theme.on, ST.fs * 1.5, "c");
+ST.row([{ id: "resume", label: "RESUME" }, { id: "menu", label: "MENU" }], y + 7 * ST.fs * 1.5 + 14);
+};
+ST.drawOver = () => {
+const o = ST.overInfo || { title: "GAME OVER", lines: [] }, big = ST.fs * 1.5;
+ST.veil(o.win ? 0.4 : 0.55);
+let y = ST.small ? 50 : 70;
+ST.text(o.title, ST.cw / 2, y, o.win ? ST.theme.on : "#e0525e", big, "c"); y += 7 * big + 10;
+y = ST.lines(o.lines || [], y, ST.theme.text, ST.small ? 1 : ST.fs * 0.75) + 6;
+ST.row([{ id: "again", label: "AGAIN" }, { id: "menu", label: "MENU" }], y);
+};
+ST.ticks = 0; ST.time = 0;
+ST.hidden = false;
+document.addEventListener("visibilitychange", () => {
+ST.hidden = document.hidden;
+if (ST.hidden && ST.scene === "play") ST.go("paused");   // scrolled away = auto-pause (input.js already cleared held input)
+});
+ST.update = dt => {
+ST.ticks++; ST.time += dt; ST.sceneT += dt;
+if (ST.G.tick) ST.G.tick(dt);                    // always (animations, title backdrop)
+if (ST.scene === "play") ST.G.update(dt);         // only while playing
+};
+ST.draw = () => {
+if (!ST.g || !ST.cw) return;                     // frames can start at 0x0: nothing to draw yet
+const c = ST.ctx, d = ST.DPR();
+c.setTransform(d, 0, 0, d, 0, 0);
+ST.btns = []; ST.uiTexts = []; ST.hud = []; ST.uiBottom = 0; ST.trackUI = true; ST.hudMode = false;
+ST.G.draw(ST.time);                               // the game paints its world into ST.g (and may draw on ST.ctx after present)
+if (!ST.G.presents) ST.present();
+if (ST.G.overlay) ST.G.overlay();                 // optional: draw on the main canvas over the world (e.g. a 3D view)
+if (ST.scene === "title") ST.drawTitle();
+else if (ST.scene === "play") { ST.hudMode = true; if (ST.G.hud) ST.G.hud(); ST.drawPauseBtn(); ST.hudMode = false; ST.drawJoy(); }
+else if (ST.scene === "paused") { if (ST.G.hud) ST.G.hud(); ST.drawPaused(); }
+else if (ST.scene === "over") ST.drawOver();
+if (ST.G.top) { ST.trackUI = false; ST.G.top(); ST.trackUI = true; }   // optional: decoration on top of everything (keep it in the bottom 30%)
+};
+let last = performance.now(), acc = 0;
+ST.now = last; ST.frameNo = 0;
+ST.frame = now => {
+ST.now = now; ST.frameNo++;
+ST.readPad();                                   // never throws (see input.js)
+if (ST.cw !== innerWidth || ST.ch !== innerHeight || ST.canvas.width !== Math.round(innerWidth * ST.DPR())) ST.resize();
+const dtm = now - last; last = now;
+if (!document.hidden) { acc += Math.min(dtm, 100); let n = 0; while (acc >= 1000 / 60 && n++ < 5) { ST.update(1 / 60); acc -= 1000 / 60; } if (n >= 5) acc = 0; } else acc = 0;
+if (ST.cw) ST.draw();
+requestAnimationFrame(ST.frame);
+};
+function uiReport() {
+const dom = [...document.querySelectorAll("[data-control]")].filter(e => getComputedStyle(e).display !== "none")
+.map(e => { const r = e.getBoundingClientRect(); return { id: e.id, x: r.left, y: r.top, w: r.width, h: r.height }; });
+const rects = ST.hud.concat(ST.scene === "play" ? dom : []), G = 4, W = Math.ceil(ST.cw / G), H = Math.ceil(ST.ch / G), cells = new Uint8Array(W * H);
+for (const r of rects) for (let y = Math.max(0, Math.floor(r.y / G)); y < Math.min(H, Math.ceil((r.y + r.h) / G)); y++)
+for (let x = Math.max(0, Math.floor(r.x / G)); x < Math.min(W, Math.ceil((r.x + r.w) / G)); x++) cells[y * W + x] = 1;
+let n = 0; for (const c of cells) n += c;
+const round = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" ? Math.round(v * 10) / 10 : v]));
+return { texts: ST.uiTexts.map(round), hud: ST.hud.map(round), dom: dom.map(round), hudCover: W * H ? +(n / (W * H)).toFixed(3) : 0 };
+}
+window.__gs = () => {
+const S = ST.sound, m = S.music;
+return Object.assign({
+scene: ST.scene, framed: ST.framed, small: ST.small, paused: !!document.hidden, ticks: ST.ticks, time: +ST.time.toFixed(3), seq: ST.seq,
+test: ST.TEST_BUILD, switched: ST.switched, version: ST.cfg.v, addons: ST.cfg.addons.slice(),
+buttons: ST.btns.map(q => ({ id: q.id, label: q.label, x: q.x, y: q.y, w: q.w, h: q.h })),
+layout: { w: ST.cw, h: ST.ch, scale: +ST.sc.toFixed(3), buffer: [ST.canvas.width, ST.canvas.height], world: [ST.BW, ST.BH], uiBottom: ST.uiBottom, safe: ST.L },
+sound: { on: S.on, muted: S.muted, ctx: S.ac ? S.ac.state : null, music: m ? { paused: m.paused, muted: m.muted, time: m.currentTime } : null },
+save: { ok: ST.store.ok, data: JSON.parse(JSON.stringify(ST.save.data)) },
+drag: ST.drag.on,
+input: { keys: [...ST.keys], drag: ST.drag.on, dragId: ST.drag.id, clears: ST.inputStats.clears, last: ST.inputStats.last,
+pad: { ok: ST.pad.ok, connected: ST.pad.connected, errors: ST.pad.errors } },
+ui: uiReport(),
+render3d: self.ST3D && ST3D.auto ? ST3D.auto.report() : null,
+tour: ST.G.tour || [],
+startSeed: ST.startSeed == null ? null : ST.startSeed,   // rng state right after the game's start() (seeded runs: must not depend on robot waits)
+}, ST.G.hook ? ST.G.hook() : {});
+};
+ST.run = G => {
+ST.G = G;
+ST.switched = Object.values(ST.sw).some(Boolean);
+if (ST.sw.seed) ST.seed = ST.sw.seed >>> 0;
+if (ST.sw.card) ST.root.classList.add("card");
+Object.assign(ST.sound.SFX, { start: t => { t(523, 523, 0.08, "triangle", 0.05); t(784, 784, 0.12, "triangle", 0.05, 0.08); },
+tap: t => t(660, 640, 0.03, "triangle", 0.03), win: t => [523, 659, 784, 1046].forEach((f, i) => t(f, f, 0.25, "sine", 0.06, i * 0.12)),
+lose: t => t(392, 98, 0.8, "sawtooth", 0.06) }, G.sfx || {});
+ST.save.load(G.saveDefaults || {});
+addEventListener("resize", ST.resize);
+ST.resize();
+if (G.init) G.init();
+try { ST.draw(); } catch (e) { setTimeout(() => { throw e; }); }
+document.getElementById("loading").classList.add("off");
+window.__ready = true;
+requestAnimationFrame(ST.frame);
+};
+(function (root) {
+"use strict";
+const KEYS = { tick: 1, transition: 1, start: 1, screen: 1, title: 1, item: 1, setting: 1 };
+const ACTIONS = { push: 1, pop: 1, go: 1, emit: 1, close: 1 };
+const LAYOUT = {
+W: 640, H: 480, panelW: 320, panelX: 160, titleY: 120,
+firstY: 180, rowH: 32, stride: 40, slide: 24
+};
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+function smootherstep(u) {
+u = clamp(u, 0, 1);
+return u * u * u * (u * (u * 6 - 15) + 10);
+}
+function tokens(line) {
+const out = [];
+String(line).replace(/"([^"]*)"|(\S+)/g, function (m, q, w) {
+out.push(q != null ? q : w);
+return m;
+});
+return out;
+}
+function parse(text) {
+const S = {
+tick: 1 / 60,
+transition: 0.28,
+start: "",
+screens: {},
+order: [],
+errors: [],
+bytes: String(text || "").length
+};
+const lines = String(text || "").split(/\n/);
+let cur = null;
+for (let li = 0; li < lines.length; li++) {
+const raw = lines[li];
+if (/^\s*$/.test(raw)) continue;
+const t = tokens(raw.replace(/\s+$/, ""));
+if (!t.length) continue;
+const err = function (m) { S.errors.push("line " + (li + 1) + ": " + m); };
+const k0 = t[0];
+if (k0 === "#") continue;
+if (!KEYS[k0]) { err("unknown keyword " + k0); continue; }
+if (k0 === "tick") {
+if (t[1] && t[1].indexOf("/") >= 0) {
+const p = t[1].split("/");
+S.tick = (+p[0]) / (+p[1] || 1);
+} else S.tick = +t[1];
+if (!(S.tick > 0)) { err("tick must be > 0"); S.tick = 1 / 60; }
+} else if (k0 === "transition") {
+S.transition = +t[1];
+if (!(S.transition >= 0)) { err("transition must be >= 0"); S.transition = 0.28; }
+} else if (k0 === "start") {
+S.start = t[1] || "";
+if (!S.start) err("start needs a screen name");
+} else if (k0 === "screen") {
+if (!t[1]) { err("screen needs a name"); continue; }
+cur = { name: t[1], title: "", rows: [] };
+S.screens[t[1]] = cur;
+S.order.push(t[1]);
+} else if (k0 === "title") {
+if (!cur) { err("title outside a screen"); continue; }
+cur.title = t.slice(1).join(" ");
+} else if (k0 === "item") {
+if (!cur) { err("item outside a screen"); continue; }
+if (!t[1]) { err("item needs a label"); continue; }
+const row = { kind: "item", name: t[1], label: t[1], cost: 0, actions: [] };
+for (let i = 2; i < t.length; i++) {
+if (t[i] === "cost") { row.cost = +t[++i] || 0; }
+else if (t[i] === "action") {
+i++;
+while (i < t.length && t[i] !== "cost") {
+const a = t[i];
+if (a === "push" || a === "go" || a === "emit") {
+const act = { type: a, name: t[i + 1] || "" };
+i++;
+if (a === "emit" && t[i + 1] && !ACTIONS[t[i + 1]]) { act.arg = t[i + 1]; i++; }
+row.actions.push(act);
+} else if (a === "pop" || a === "close") {
+row.actions.push({ type: a });
+} else { err("unknown action " + a); break; }
+i++;
+}
+i--;
+} else err("unknown item field " + t[i]);
+}
+cur.rows.push(row);
+} else if (k0 === "setting") {
+if (!cur) { err("setting outside a screen"); continue; }
+if (!t[1]) { err("setting needs a name"); continue; }
+const row = { kind: "setting", name: t[1], label: t[1], form: "range" };
+let i = 2;
+if (t[i] === "range") {
+row.form = "range";
+row.lo = +t[i + 1]; row.hi = +t[i + 2]; i += 3;
+} else if (t[i] === "enum") {
+row.form = "enum";
+row.values = [];
+i++;
+while (i < t.length && t[i] !== "default") { row.values.push(t[i]); i++; }
+} else if (t[i] === "toggle") {
+row.form = "toggle";
+i++;
+} else { err("setting needs range, enum, or toggle"); continue; }
+if (t[i] === "default") { row.def = t[i + 1]; i += 2; }
+if (t[i] === "step") { row.step = +t[i + 1]; i += 2; }
+if (row.form === "range") {
+if (row.step == null || !(row.step > 0)) row.step = 1;
+row.def = row.def != null && row.def !== "" ? +row.def : row.lo;
+} else if (row.form === "enum") {
+if (!row.values.length) { err("enum needs values"); continue; }
+if (row.def == null || row.values.indexOf(String(row.def)) < 0) row.def = row.values[0];
+else row.def = String(row.def);
+} else {
+row.def = (row.def === "on" || row.def === "off") ? row.def : "off";
+}
+cur.rows.push(row);
+}
+}
+if (!S.start && S.order.length) S.start = S.order[0];
+if (S.start && !S.screens[S.start]) S.errors.push("start screen not found: " + S.start);
+return S;
+}
+function padIntent(pad) {
+if (!pad) return null;
+if (pad.a) return "confirm";
+if (pad.b) return "cancel";
+if (pad.dy > 0.5) return "down";
+if (pad.dy < -0.5) return "up";
+if (pad.dx > 0.5) return "right";
+if (pad.dx < -0.5) return "left";
+return null;
+}
+function create(text, opt) {
+opt = opt || {};
+const parsed = typeof text === "string" ? parse(text) : text;
+const spec = parsed;
+const bind = (opt && opt.bind) || {};
+let off = !!(opt && (opt.off === true || opt.off === "off"));
+let stack = [];
+let focus = {};
+const values = {};
+let wallet = Infinity;
+const all = [];
+let last = [];
+let transT = 0;
+let transFrom = LAYOUT.slide;
+const G = {};
+function screenOf(name) { return spec.screens[name] || null; }
+function defaults() {
+const names = Object.keys(spec.screens);
+for (let s = 0; s < names.length; s++) {
+const rows = spec.screens[names[s]].rows;
+for (let i = 0; i < rows.length; i++) {
+const r = rows[i];
+if (r.kind === "setting" && values[r.name] == null) values[r.name] = r.def;
+}
+}
+}
+function emit(type, ev) {
+const e = ev || {};
+e.type = type;
+last.push(e);
+all.push(e);
+if (bind.on) bind.on(type, e);
+}
+function beginGlide() {
+transT = 0;
+transFrom = LAYOUT.slide;
+}
+function offsetNow() {
+const T = spec.transition;
+if (T <= 0) return 0;
+return transFrom * (1 - smootherstep(transT / T));
+}
+function alphaNow() {
+const T = spec.transition;
+if (T <= 0) return 1;
+return smootherstep(transT / T);
+}
+function topName() { return stack.length ? stack[stack.length - 1] : ""; }
+function rowsOf(name) {
+const s = screenOf(name);
+return s ? s.rows : [];
+}
+function focusOf(name) {
+const n = rowsOf(name).length;
+if (!n) return 0;
+let f = focus[name];
+if (f == null) f = 0;
+return clamp(f, 0, n - 1);
+}
+function setFocus(name, i) {
+const n = rowsOf(name).length;
+if (!n) return;
+focus[name] = ((i % n) + n) % n;
+}
+function pushScreen(name) {
+if (!screenOf(name)) return;
+if (topName() === name) return;
+stack.push(name);
+if (focus[name] == null) focus[name] = 0;
+beginGlide();
+}
+function popScreen() {
+if (!stack.length) return;
+stack.pop();
+beginGlide();
+}
+function goScreen(name) {
+if (!screenOf(name)) return;
+stack = [name];
+if (focus[name] == null) focus[name] = 0;
+beginGlide();
+}
+function closeAll() {
+if (!stack.length) return;
+stack = [];
+beginGlide();
+}
+function affordable(row) {
+if (!row || row.kind !== "item" || !row.cost) return true;
+return wallet >= row.cost;
+}
+function applySetting(row, dir) {
+if (!row || row.kind !== "setting") return false;
+const name = row.name;
+let v = values[name];
+if (row.form === "range") {
+const next = clamp((+v) + dir * row.step, row.lo, row.hi);
+if (next === v) return false;
+values[name] = next;
+} else if (row.form === "enum") {
+let i = row.values.indexOf(String(v));
+if (i < 0) i = 0;
+i = (i + dir + row.values.length * 8) % row.values.length;
+values[name] = row.values[i];
+} else {
+values[name] = (v === "on") ? "off" : "on";
+}
+emit("setting", { name: name, value: values[name], screen: topName() });
+return true;
+}
+function runActions(row) {
+if (!affordable(row)) return;
+let emitName = null, emitArg = null;
+let didClose = false, didPop = false, didGo = null, didPush = null;
+for (let i = 0; i < row.actions.length; i++) {
+const a = row.actions[i];
+if (a.type === "emit") { emitName = a.name; emitArg = a.arg; }
+else if (a.type === "close") didClose = true;
+else if (a.type === "pop") didPop = true;
+else if (a.type === "go") didGo = a.name;
+else if (a.type === "push") didPush = a.name;
+}
+if (emitName) emit(emitName, { screen: topName(), item: row.name, arg: emitArg || undefined });
+else emit("confirm", { screen: topName(), item: row.name });
+if (didClose) closeAll();
+else if (didGo) goScreen(didGo);
+else if (didPop) popScreen();
+else if (didPush) pushScreen(didPush);
+}
+function pressIntent(intent) {
+if (off || !intent) return;
+const top = topName();
+if (intent === "cancel") {
+if (stack.length > 1) {
+popScreen();
+emit("close", { screen: top });
+} else if (stack.length === 1) {
+emit("cancel", { screen: top });
+}
+return;
+}
+if (!top) return;
+const rows = rowsOf(top);
+if (!rows.length) return;
+let f = focusOf(top);
+if (intent === "down") { setFocus(top, f + 1); return; }
+if (intent === "up") { setFocus(top, f - 1); return; }
+const row = rows[focusOf(top)];
+if (intent === "left" || intent === "right") {
+if (row && row.kind === "setting") applySetting(row, intent === "right" ? 1 : -1);
+return;
+}
+if (intent === "confirm") {
+if (row && row.kind === "setting") {
+if (row.form === "toggle") applySetting(row, 1);
+return;
+}
+if (row) runActions(row);
+}
+}
+function pointer(p) {
+if (off || !p) return;
+const top = topName();
+if (!top) return;
+const rows = rowsOf(top);
+const i = (function () {
+for (let k = 0; k < rows.length; k++) {
+const y = LAYOUT.firstY + k * LAYOUT.stride;
+if (p.x >= LAYOUT.panelX && p.x < LAYOUT.panelX + LAYOUT.panelW &&
+p.y >= y && p.y < y + LAYOUT.rowH) return k;
+}
+return -1;
+})();
+if (i < 0) return;
+setFocus(top, i);
+if (!p.down) return;
+const row = rows[i];
+if (row && row.kind === "setting") {
+const mid = LAYOUT.panelX + LAYOUT.panelW / 2;
+applySetting(row, p.x >= mid ? 1 : -1);
+return;
+}
+if (row) runActions(row);
+}
+defaults();
+if (!off && spec.start && screenOf(spec.start)) {
+stack = [spec.start];
+focus[spec.start] = 0;
+transT = spec.transition; // first screen already arrived at create
+}
+G.press = function (intent) { last = []; pressIntent(intent); return G; };
+G.input = function (src) {
+last = [];
+if (off || !src) return G;
+if (src.intent) pressIntent(src.intent);
+else if (src.pad) pressIntent(padIntent(src.pad));
+else if (src.pointer) pointer(src.pointer);
+return G;
+};
+G.open = function (name) {
+last = [];
+if (off) return G;
+const before = topName();
+pushScreen(name);
+if (topName() !== before) emit("open", { screen: name });
+return G;
+};
+G.back = function () { last = []; pressIntent("cancel"); return G; };
+G.wallet = function (n) { wallet = n; return G; };
+G.set = function (name, value) {
+last = [];
+if (off) return G;
+const names = Object.keys(spec.screens);
+let row = null;
+for (let s = 0; s < names.length && !row; s++) {
+const rows = spec.screens[names[s]].rows;
+for (let i = 0; i < rows.length; i++) {
+if (rows[i].kind === "setting" && rows[i].name === name) { row = rows[i]; break; }
+}
+}
+if (!row) return G;
+let v = value;
+if (row.form === "range") v = clamp(+value, row.lo, row.hi);
+else if (row.form === "enum") {
+if (row.values.indexOf(String(value)) < 0) return G;
+v = String(value);
+} else v = (value === "on" || value === true) ? "on" : "off";
+if (values[name] === v) return G;
+values[name] = v;
+emit("setting", { name: name, value: v, screen: topName() });
+return G;
+};
+G.settings = function () {
+const o = {};
+const ks = Object.keys(values);
+for (let i = 0; i < ks.length; i++) o[ks[i]] = values[ks[i]];
+return o;
+};
+G.stack = function () { return stack.slice(); };
+G.top = function () { return topName(); };
+G.focus = function () { return focusOf(topName()); };
+G.offset = function () { return offsetNow(); };
+G.alpha = function () { return alphaNow(); };
+G.view = function () {
+const top = topName();
+const s = screenOf(top);
+return {
+stack: stack.slice(),
+top: top,
+focus: focusOf(top),
+settings: G.settings(),
+offset: offsetNow(),
+alpha: alphaNow(),
+title: s ? s.title : "",
+rows: s ? s.rows.slice() : [],
+off: off
+};
+};
+G.step = function (dt) {
+if (off) return G;
+const T = spec.transition;
+if (T <= 0) { transT = 0; transFrom = 0; return G; }
+transT = transT + (dt == null ? spec.tick : dt);
+if (transT > T) transT = T;
+return G;
+};
+G.draw = function (ctx, optD) {
+if (off || !ctx) return G;
+const d = optD || {};
+const W = d.w || LAYOUT.W, H = d.h || LAYOUT.H;
+const top = topName();
+if (!top) return G;
+const s = screenOf(top);
+if (!s) return G;
+const a = alphaNow();
+const oy = offsetNow();
+if (ctx.save) ctx.save();
+if (ctx.globalAlpha != null) ctx.globalAlpha = a;
+const x = LAYOUT.panelX, y = 80 + oy, w = LAYOUT.panelW, h = 40 + s.rows.length * LAYOUT.stride + 40;
+ctx.fillStyle = "#1a1a22";
+ctx.fillRect(x, y, w, h);
+ctx.fillStyle = "#f2f2f6";
+if (ctx.font != null) ctx.font = "16px sans-serif";
+if (ctx.fillText) ctx.fillText(s.title || top, x + 16, y + 28);
+for (let i = 0; i < s.rows.length; i++) {
+const r = s.rows[i];
+const ry = LAYOUT.firstY + i * LAYOUT.stride + oy;
+const on = i === focusOf(top);
+ctx.fillStyle = on ? "#3a5a8a" : "#2a2a33";
+ctx.fillRect(LAYOUT.panelX, ry, LAYOUT.panelW, LAYOUT.rowH);
+ctx.fillStyle = affordable(r) ? "#f2f2f6" : "#777780";
+let label = r.label;
+if (r.kind === "setting") {
+label = r.label + "  " + values[r.name];
+} else if (r.cost) {
+label = r.label + "  (" + r.cost + ")";
+}
+if (ctx.fillText) ctx.fillText(label, LAYOUT.panelX + 12, ry + 22);
+}
+if (ctx.restore) ctx.restore();
+return G;
+};
+G.events = function () { return last.slice(); };
+G.log = function () { return all.slice(); };
+G.setOff = function (v) { off = v !== false && v !== 0 && v !== "off"; return G; };
+G.off = function () { return off; };
+G.spec = function () { return spec; };
+G.locksInput = function () { return false; };
+return G;
+}
+const api = { parse: parse, create: create };
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+if (root) {
+const host = root.ST || (root.ST = {});
+host.MENU = api;
+root.MENU = api;
+}
+})(typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this));
+(function (root) {
+"use strict";
+const KEYS = {
+game: 1, version: 1, slots: 1, autosave: 1, prefix: 1,
+section: 1, migrate: 1, rename: 1, default: 1
+};
+function tokens(line) {
+const out = [];
+String(line).replace(/"([^"]*)"|(\S+)/g, function (m, q, w) {
+out.push(q != null ? q : w);
+return m;
+});
+return out;
+}
+function canon(v) {
+if (v === null) return "null";
+const t = typeof v;
+if (t === "number" || t === "boolean") return JSON.stringify(v);
+if (t === "string") return JSON.stringify(v);
+if (Array.isArray(v)) {
+let s = "[";
+for (let i = 0; i < v.length; i++) { if (i) s += ","; s += canon(v[i]); }
+return s + "]";
+}
+if (t === "object") {
+const keys = Object.keys(v).sort();
+let s = "{";
+for (let i = 0; i < keys.length; i++) {
+if (i) s += ",";
+s += JSON.stringify(keys[i]) + ":" + canon(v[keys[i]]);
+}
+return s + "}";
+}
+return "null";
+}
+function fnv1a(str) {
+let h = 2166136261;
+for (let i = 0; i < str.length; i++) {
+h ^= str.charCodeAt(i);
+h = Math.imul(h, 16777619) >>> 0;
+}
+let hex = h.toString(16);
+while (hex.length < 8) hex = "0" + hex;
+return hex;
+}
+function checksum(envelope) {
+return fnv1a(canon({ v: envelope.v, game: envelope.game, slot: envelope.slot, body: envelope.body }));
+}
+function verify(envelope) {
+return !!(envelope && typeof envelope === "object" && envelope.check === checksum(envelope));
+}
+function getPath(obj, path) {
+const p = String(path).split(".");
+let cur = obj;
+for (let i = 0; i < p.length; i++) {
+if (cur == null || typeof cur !== "object") return undefined;
+cur = cur[p[i]];
+}
+return cur;
+}
+function setPath(obj, path, val) {
+const p = String(path).split(".");
+let cur = obj;
+for (let i = 0; i < p.length - 1; i++) {
+if (cur[p[i]] == null || typeof cur[p[i]] !== "object") cur[p[i]] = {};
+cur = cur[p[i]];
+}
+cur[p[p.length - 1]] = val;
+}
+function delPath(obj, path) {
+const p = String(path).split(".");
+let cur = obj;
+for (let i = 0; i < p.length - 1; i++) {
+if (cur == null || typeof cur !== "object") return;
+cur = cur[p[i]];
+}
+if (cur && typeof cur === "object") delete cur[p[p.length - 1]];
+}
+function applySteps(body, steps) {
+const out = JSON.parse(JSON.stringify(body || {}));
+for (let i = 0; i < steps.length; i++) {
+const s = steps[i];
+if (s.type === "rename") {
+const v = getPath(out, s.from);
+if (v !== undefined) { setPath(out, s.to, v); delPath(out, s.from); }
+} else if (s.type === "default") {
+if (getPath(out, s.path) === undefined) setPath(out, s.path, s.value);
+}
+}
+return out;
+}
+function parseValue(tok) {
+if (tok == null) return null;
+if (tok === "true") return true;
+if (tok === "false") return false;
+if (tok !== "" && isFinite(+tok) && String(+tok) === String(tok).trim()) return +tok;
+return tok;
+}
+function parse(text) {
+const S = {
+game: "", version: 1, slots: 1, autosave: 0, prefix: "save",
+sections: [], migrates: [], errors: [], bytes: String(text || "").length
+};
+const lines = String(text || "").split(/\n/);
+let curMig = null;
+for (let li = 0; li < lines.length; li++) {
+const raw = lines[li];
+if (/^\s*$/.test(raw)) continue;
+const t = tokens(raw.replace(/\s+$/, ""));
+if (!t.length) continue;
+const err = function (m) { S.errors.push("line " + (li + 1) + ": " + m); };
+const k0 = t[0];
+if (k0 === "#") continue;
+if (!KEYS[k0]) { err("unknown keyword " + k0); continue; }
+if (k0 === "game") { S.game = t[1] || ""; if (!S.game) err("game needs a name"); curMig = null; }
+else if (k0 === "version") { S.version = +t[1] || 1; curMig = null; }
+else if (k0 === "slots") { S.slots = Math.max(1, +t[1] || 1); curMig = null; }
+else if (k0 === "autosave") { S.autosave = +t[1] || 0; curMig = null; }
+else if (k0 === "prefix") { S.prefix = t[1] || "save"; curMig = null; }
+else if (k0 === "section") {
+curMig = null;
+if (!t[1]) err("section needs a name");
+else if (S.sections.indexOf(t[1]) < 0) S.sections.push(t[1]);
+} else if (k0 === "migrate") {
+const from = +t[1], to = +t[2];
+if (!(from >= 1) || to !== from + 1) { err("migrate needs adjacent versions A A+1"); curMig = null; continue; }
+curMig = { from: from, to: to, steps: [] };
+S.migrates.push(curMig);
+} else if (k0 === "rename") {
+if (!curMig) { err("rename outside migrate"); continue; }
+if (!t[1] || !t[2]) { err("rename needs from and to"); continue; }
+curMig.steps.push({ type: "rename", from: t[1], to: t[2] });
+} else if (k0 === "default") {
+if (!curMig) { err("default outside migrate"); continue; }
+if (!t[1]) { err("default needs a path"); continue; }
+curMig.steps.push({ type: "default", path: t[1], value: parseValue(t[2]) });
+}
+}
+return S;
+}
+function memoryBackend() {
+const mem = {};
+return {
+getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+setItem: function (k, v) { mem[k] = String(v); },
+removeItem: function (k) { delete mem[k]; },
+_dump: function () { return mem; }
+};
+}
+function localStorageBackend(store) {
+const ls = store || (typeof globalThis !== "undefined" ? globalThis.localStorage : null);
+return {
+getItem: function (k) {
+if (!ls) return null;
+try { const v = ls.getItem(k); return v == null ? null : v; } catch (e) { return null; }
+},
+setItem: function (k, v) {
+if (!ls) return;
+try { ls.setItem(k, String(v)); } catch (e) {}
+},
+removeItem: function (k) {
+if (!ls) return;
+try { ls.removeItem(k); } catch (e) {}
+}
+};
+}
+function attachLocalStorage(apiObj) {
+apiObj.localStorage = function (store) { return localStorageBackend(store); };
+}
+function parseBlob(raw) {
+if (raw == null || raw === "") return null;
+try { return JSON.parse(raw); } catch (e) { return null; }
+}
+function create(text, opt) {
+opt = opt || {};
+const spec = typeof text === "string" ? parse(text) : text;
+const bind = (opt && opt.bind) || {};
+const backend = (opt && opt.backend) || memoryBackend();
+let off = !!(opt && (opt.off === true || opt.off === "off"));
+const hooks = {};
+const all = [];
+let last = [];
+function emit(type, ev) {
+const e = ev || {};
+e.type = type;
+last.push(e);
+all.push(e);
+if (bind.on) bind.on(type, e);
+}
+function slotKey(slot) { return spec.prefix + ":slot:" + slot; }
+function storeKey(key) { return spec.prefix + ":store:" + key; }
+function cpKey(name) { return spec.prefix + ":cp:" + name; }
+function capture() {
+const body = {};
+for (let i = 0; i < spec.sections.length; i++) {
+const name = spec.sections[i];
+const h = hooks[name];
+body[name] = h && h.get ? h.get() : {};
+}
+return body;
+}
+function apply(body) {
+if (!body) return;
+for (let i = 0; i < spec.sections.length; i++) {
+const name = spec.sections[i];
+if (body[name] == null) continue;
+const h = hooks[name];
+if (h && h.set) h.set(body[name]);
+}
+}
+function migrateBody(v, body) {
+let ver = v, out = body || {};
+while (ver < spec.version) {
+let steps = null;
+for (let i = 0; i < spec.migrates.length; i++) {
+if (spec.migrates[i].from === ver && spec.migrates[i].to === ver + 1) {
+steps = spec.migrates[i].steps; break;
+}
+}
+if (!steps) break;
+out = applySteps(out, steps);
+ver = ver + 1;
+}
+return { v: ver, body: out, migrated: ver !== v };
+}
+function putSafe(key, envelope) {
+const raw = JSON.stringify(envelope);
+const tmp = key + ".tmp";
+const bak = key + ".bak";
+backend.setItem(tmp, raw);
+const prev = backend.getItem(key);
+if (prev != null) backend.setItem(bak, prev);
+backend.setItem(key, raw);
+if (prev == null && backend.getItem(bak) == null) backend.setItem(bak, raw);
+if (backend.removeItem) backend.removeItem(tmp);
+}
+function takeSafe(key) {
+const primary = parseBlob(backend.getItem(key));
+if (verify(primary)) return { env: primary, recovered: false };
+const bak = parseBlob(backend.getItem(key + ".bak"));
+if (verify(bak)) return { env: bak, recovered: true };
+return { env: null, recovered: false, failed: true };
+}
+function writeAt(key, slotTag, body) {
+if (off) return false;
+last = [];
+const env = { v: spec.version, game: spec.game, slot: slotTag, body: body };
+env.check = checksum(env);
+putSafe(key, env);
+return env;
+}
+function readAt(key, applyIt) {
+last = [];
+const got = takeSafe(key);
+if (got.failed || !got.env) {
+if (!off) emit("error", { key: key, reason: "missing-or-corrupt" });
+return null;
+}
+if (got.env.game && spec.game && got.env.game !== spec.game) {
+emit("error", { key: key, reason: "game-mismatch" });
+return null;
+}
+const mig = migrateBody(got.env.v, got.env.body);
+if (got.recovered) emit("recover", { key: key, slot: got.env.slot });
+if (mig.migrated) emit("migrate", { from: got.env.v, to: mig.v, slot: got.env.slot });
+if (applyIt) apply(mig.body);
+emit("read", { slot: got.env.slot, recovered: !!got.recovered, migrated: !!mig.migrated });
+return mig.body;
+}
+const G = {};
+G.register = function (name, hook) {
+hooks[name] = hook || {};
+return G;
+};
+G.write = function (slot) {
+last = [];
+if (off) return G;
+const n = +slot;
+if (n < 0 || n >= spec.slots) { emit("error", { reason: "bad-slot", slot: n }); return G; }
+const env = writeAt(slotKey(n), n, capture());
+if (env) emit("write", { slot: n });
+return G;
+};
+G.read = function (slot) {
+if (off) { last = []; return null; }
+const n = +slot;
+if (n < 0 || n >= spec.slots) { last = []; emit("error", { reason: "bad-slot", slot: n }); return null; }
+return readAt(slotKey(n), true);
+};
+G.autosave = function () {
+if (off) { last = []; return G; }
+G.write(spec.autosave);
+if (last.some(function (e) { return e.type === "write"; })) emit("autosave", { slot: spec.autosave });
+return G;
+};
+G.checkpoint = function (name) {
+last = [];
+if (off) return G;
+if (!name) { emit("error", { reason: "bad-checkpoint" }); return G; }
+const env = writeAt(cpKey(name), name, capture());
+if (env) emit("checkpoint", { name: name });
+return G;
+};
+G.readCheckpoint = function (name) {
+if (off) { last = []; return null; }
+return readAt(cpKey(name), true);
+};
+G.list = function () {
+const out = [];
+for (let i = 0; i < spec.slots; i++) {
+const key = slotKey(i);
+const got = takeSafe(key);
+out.push({ slot: i, ok: !!(got.env && !got.failed), recovered: !!got.recovered });
+}
+return out;
+};
+G.clear = function (slot) {
+last = [];
+if (off) return G;
+const n = +slot;
+const key = slotKey(n);
+backend.removeItem(key);
+backend.removeItem(key + ".tmp");
+backend.removeItem(key + ".bak");
+emit("clear", { slot: n });
+return G;
+};
+G.storeAdapter = function () {
+return {
+get ok() { return !off; },
+get: function (key, def) {
+if (off) return def;
+const got = takeSafe(storeKey(key));
+if (!got.env) return def;
+return got.env.body;
+},
+set: function (key, val) {
+if (off) return false;
+last = [];
+const env = writeAt(storeKey(key), key, val);
+if (env) emit("store", { key: key });
+return !!env;
+}
+};
+};
+G.backendKeys = function () {
+if (backend._dump) return Object.keys(backend._dump());
+return [];
+};
+G.events = function () { return last.slice(); };
+G.log = function () { return all.slice(); };
+G.setOff = function (v) { off = v !== false && v !== 0 && v !== "off"; return G; };
+G.off = function () { return off; };
+G.spec = function () { return spec; };
+G.locksInput = function () { return false; };
+return G;
+}
+const api = {
+parse: parse,
+create: create,
+memory: memoryBackend,
+checksum: checksum,
+verify: verify
+};
+attachLocalStorage(api);
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+if (root) {
+const host = root.ST || (root.ST = {});
+host.SAVE = api;
+root.SAVE = api;
+}
+})(typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this));
+(function (root) {
+"use strict";
+const KEYS = { action: 1, intent: 1, open: 1, play: 1, axis: 1, slot: 1, pause: 1, prefs: 1 };
+const INTENTS = ["up", "down", "left", "right", "confirm", "cancel"];
+function tokens(line) {
+const out = [];
+String(line).replace(/"([^"]*)"|(\S+)/g, function (m, q, w) { out.push(q != null ? { q: q } : w); return m; });
+return out;
+}
+function parse(text) {
+const S = { actions: {}, order: [], intents: {}, opens: [], play: "", axes: {}, slot: 0, pause: true, prefs: true, errors: [], bytes: String(text || "").length };
+const lines = String(text || "").split(/\n/);
+for (let li = 0; li < lines.length; li++) {
+const raw = lines[li].replace(/\s+$/, "");
+if (/^\s*(#|$)/.test(raw)) continue;
+const t = tokens(raw), err = function (m) { S.errors.push("line " + (li + 1) + ": " + m); };
+const k = t[0];
+if (typeof k !== "string" || !KEYS[k]) { err("unknown keyword " + (typeof k === "string" ? k : '"' + k.q + '"')); continue; }
+if (k === "action") {
+const name = t[1];
+if (typeof name !== "string") { err("action needs a name"); continue; }
+const a = { name: name, codes: [], pad: null, label: name };
+for (let i = 2; i < t.length; i++) {
+if (typeof t[i] === "object") a.label = t[i].q;
+else if (t[i] === "pad") { const n = +t[++i]; if (!(n >= 0)) err("pad needs a button number"); else a.pad = n; }
+else a.codes.push(t[i]);
+}
+if (!a.codes.length && a.pad == null) { err("action " + name + " needs a key code or a pad button"); continue; }
+if (!S.actions[name]) S.order.push(name);
+S.actions[name] = a;
+} else if (k === "intent") {
+if (INTENTS.indexOf(t[1]) < 0 || typeof t[2] !== "string") { err("intent up|down|left|right|confirm|cancel ACTION"); continue; }
+S.intents[t[1]] = t[2];
+} else if (k === "open") {
+if (typeof t[1] !== "string" || typeof t[2] !== "string") { err("open ACTION SCREEN"); continue; }
+S.opens.push({ action: t[1], screen: t[2] });
+} else if (k === "play") S.play = typeof t[1] === "string" ? t[1] : "";
+else if (k === "axis") {
+if ((t[1] !== "x" && t[1] !== "y") || typeof t[2] !== "string" || typeof t[3] !== "string") { err("axis x|y NEG POS"); continue; }
+S.axes[t[1]] = [t[2], t[3]];
+} else if (k === "slot") { S.slot = Math.max(0, +t[1] || 0); }
+else if (k === "pause") S.pause = t[1] !== "off";
+else if (k === "prefs") S.prefs = t[1] !== "off";
+}
+for (const it in S.intents) if (!S.actions[S.intents[it]]) S.errors.push("intent " + it + ": no action " + S.intents[it]);
+for (const o of S.opens) if (!S.actions[o.action]) S.errors.push("open: no action " + o.action);
+for (const ax in S.axes) for (const n of S.axes[ax]) if (!S.actions[n]) S.errors.push("axis " + ax + ": no action " + n);
+return S;
+}
+function create(text, opt) {
+opt = opt || {};
+const spec = typeof text === "string" ? parse(text) : text, lib = opt.lib || root.ST || {};
+const bind = opt.bind || {};
+const SH = { spec: spec };
+const all = []; let last = [];
+function emit(type, ev) { const e = ev || {}; last.push([type, e]); all.push([type, e]); if (bind.on) bind.on(type, e); }
+let table = opt.table || {}, adopted = !!opt.table; const pads = {};
+function defaults() { for (const n of spec.order) { if (!adopted || !table[n]) table[n] = spec.actions[n].codes.slice(); pads[n] = spec.actions[n].pad; } }
+defaults();
+const relay = function (sys) { return function (type, ev) { emit(sys + "." + type, ev); onSpell(sys, type, ev || {}); }; };
+const menu = opt.menu != null && lib.MENU ? lib.MENU.create(opt.menu, { bind: { on: relay("menu") } }) : null;
+const save = opt.save != null && lib.SAVE ? lib.SAVE.create(opt.save, { backend: opt.backend, bind: { on: relay("save") } }) : null;
+const store = save ? save.storeAdapter() : null;
+SH.menu = menu; SH.save = save;
+function savePrefs() { if (!spec.prefs || !store) return; const p = { settings: menu ? menu.settings() : {} }; if (!adopted) p.keys = JSON.parse(JSON.stringify(table)); store.set("prefs", p); }
+function loadPrefs() {
+if (!spec.prefs || !store) return;
+const p = store.get("prefs", null); if (!p || typeof p !== "object") return;
+if (!adopted && p.keys) for (const n of spec.order) if (Array.isArray(p.keys[n])) table[n] = p.keys[n].filter(function (c) { return typeof c === "string"; });
+if (menu && p.settings) { quiet = true; for (const k in p.settings) menu.set(k, p.settings[k]); quiet = false; }
+}
+let quiet = false;
+loadPrefs();
+const queue = [], held = {}, padHeld = {};
+let down = {}, prevDown = {}, capture = null;
+SH.key = function (code, isDown) { queue.push(["k", String(code), isDown !== false]); return SH; };
+SH.padButton = function (n, isDown) { queue.push(["p", +n, isDown !== false]); return SH; };
+function actionsOf(code) { const out = []; for (const n of spec.order) if ((table[n] || []).indexOf(code) >= 0) out.push(n); return out; }
+function actionsOfPad(b) { const out = []; for (const n of spec.order) if (pads[n] === b) out.push(n); return out; }
+SH.actionsOf = actionsOf;
+SH.canon = function (code) { const a = actionsOf(code); if (a.length) return spec.actions[a[0]].codes[0] || null; return null; };
+SH.focus = function () { if (!menu) return false; const st = menu.stack(); if (!st.length) return false; return !(st.length === 1 && st[0] === spec.play); };
+function rebind(n, code) {
+if (!spec.actions[n] || typeof code !== "string") return false;
+for (const m of spec.order) if (m !== n && table[m]) { const i = table[m].indexOf(code); if (i >= 0) table[m].splice(i, 1); }
+table[n] = [code]; emit("shell.rebind", { action: n, code: code }); savePrefs(); return true;
+}
+SH.rebind = rebind;
+SH.capture = function (n) { if (!spec.actions[n]) return false; capture = n; emit("shell.capture", { action: n }); return true; };
+SH.capturing = function () { return capture; };
+SH.reset = function () { for (const n of spec.order) table[n] = spec.actions[n].codes.slice(); emit("shell.keys-reset", {}); savePrefs(); return SH; };
+SH.bindings = function () { return table; };
+SH.adopt = function (t) {                   // take an outside table (e.g. the Desktop Shell's keys) as THE table
+if (!t || typeof t !== "object") return SH;
+table = t; adopted = true;
+for (const n of spec.order) if (!Array.isArray(table[n])) table[n] = spec.actions[n].codes.slice();
+emit("shell.adopt", { actions: Object.keys(table).length }); return SH;
+};
+SH.adopted = function () { return adopted; };
+function press(n) {                         // one action went down this step
+if (SH.focus()) {
+for (const it of INTENTS) if (spec.intents[it] === n) { menu.press(it); return; }
+return;
+}
+for (const o of spec.opens) if (o.action === n && menu) { menu.open(o.screen); return; }
+}
+function onSpell(sys, type, ev) {
+if (sys === "menu") {
+if (type === "save" && save) save.write(ev.arg != null && !isNaN(+ev.arg) ? +ev.arg : spec.slot);
+else if (type === "load" && save) save.read(ev.arg != null && !isNaN(+ev.arg) ? +ev.arg : spec.slot);
+else if (type === "rebind" && ev.arg) SH.capture(ev.arg);
+else if (type === "keys-reset") SH.reset();
+else if (type === "setting" && !quiet) savePrefs();
+}
+}
+SH.step = function () {
+last = [];
+prevDown = down; down = {};
+while (queue.length) {
+const q = queue.shift();
+if (q[0] === "k") {
+if (q[2] && capture) { const n = capture; capture = null; if (q[1] !== "Escape") rebind(n, q[1]); else emit("shell.capture-cancel", { action: n }); held[q[1]] = false; continue; }
+const was = !!held[q[1]]; held[q[1]] = q[2];
+if (q[2] && !was) for (const n of actionsOf(q[1])) { press(n); emit("shell.action", { action: n, code: q[1] }); }
+} else {
+const was = !!padHeld[q[1]]; padHeld[q[1]] = q[2];
+if (q[2] && !was) for (const n of actionsOfPad(q[1])) { press(n); emit("shell.action", { action: n, pad: q[1] }); }
+}
+}
+for (const n of spec.order) { let d = false; for (const c of table[n] || []) if (held[c]) d = true; if (pads[n] != null && padHeld[pads[n]]) d = true; if (d) down[n] = true; }
+if (menu) menu.step();
+return SH;
+};
+SH.down = function (n) { return !!down[n]; };
+SH.pressed = function (n) { return !!down[n] && !prevDown[n]; };
+SH.dir = function () {
+const ax = spec.axes, x = ax.x ? (down[ax.x[1]] ? 1 : 0) - (down[ax.x[0]] ? 1 : 0) : 0, y = ax.y ? (down[ax.y[1]] ? 1 : 0) - (down[ax.y[0]] ? 1 : 0) : 0;
+const l = Math.hypot(x, y); return l > 1 ? { x: x / l, y: y / l } : { x: x, y: y };
+};
+SH.clear = function () { for (const k in held) held[k] = false; for (const k in padHeld) padHeld[k] = false; down = {}; return SH; };
+SH.system = function (o) {
+o = o || {};
+return { phase: o.phase || "input", spell: SH, step: function () {
+SH.step();
+if (o.R && spec.pause) { const f = SH.focus(); if (f !== o.R.paused()) o.R.pause(f); }
+} };
+};
+SH.drawSystem = function (getCtx, o) {
+o = o || {};
+return { phase: o.phase || "draw", spell: SH, step: function () { const g = getCtx && getCtx(); if (g) SH.draw(g, o); } };
+};
+SH.draw = function (g, o) {                 // Menuspell draws in its 640x480 layout; the shell fits it to the target
+if (!menu || !g || !SH.focus()) return SH;
+o = o || {}; const w = o.w || (g.canvas && g.canvas.width) || 640, h = o.h || (g.canvas && g.canvas.height) || 480, k = Math.min(w / 640, h / 480);
+if (g.save) g.save();
+if (g.setTransform) g.setTransform(k, 0, 0, k, (w - 640 * k) / 2, (h - 480 * k) / 2);
+const v = menu.view(), n = v.rows.length;
+if (n && g.fillRect) {
+if (g.globalAlpha != null) g.globalAlpha = v.alpha == null ? 1 : v.alpha;
+g.fillStyle = "#1a1a22"; g.fillRect(160, 160 + 40 * n + (v.offset || 0), 320, 24);
+if (g.globalAlpha != null) g.globalAlpha = 1;
+}
+menu.draw(g, { w: 640, h: 480 });
+if (g.restore) g.restore();
+return SH;
+};
+SH.events = function () { return last.slice(); };
+SH.log = function () { return all.slice(); };
+SH.errors = function () { return spec.errors.slice(); };
+return SH;
+}
+const api = { parse: parse, create: create, version: "0.1" };
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+if (root) { const host = root.ST || (root.ST = {}); host.SHELL = api; }
+})(typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this));
+(function (root) {
+"use strict";
+const ST = root.ST; if (!ST || !ST.SHELL || !ST.MENU || !ST.SAVE) return;
+const D = {"game.assets":"base assets/\nsheet units units.png 16 16\nsound hit hit.wav bus sfx vol 0.7\nsound get get.ogg bus sfx\nbus music 0.6\nbus sfx 1 max 6\nbus vo 1\nduck music by vo 0.25 fade 0.1\ngroup boot units hit get\non hit.hit hit\nsprite hero units 1 scale 0.5\nsprite imp units 2 scale 0.4\nsprite brute units 0 scale 0.6","game.cam":"tick 1/60\nview 160 160\nroom 16 16\ncell 10\ndeadzone 1.5 1\nsmooth 8\nlookahead 1.5","game.hit":"tick 1/60\nseed 99\nhitstop-cap 0.12\nhurt hero hp 300 team blue r 0.45 iframe 0.40\nhurt imp hp 10 team red r 0.35 iframe 0.05\nhurt brute hp 40 team red r 0.70 iframe 0.15\natk jab startup 0.04 active 0.08 recover 0.10 dmg 6 type slash box circle 0.6 reach 0.6 knock 2.5 hitstop 0.04 crit 0.20 mul 1.75\natk claw startup 0.25 active 0.10 recover 0.40 dmg 5 type slash box circle 0.4 reach 0.5","game.level":"size 16 16\ncell 1\nfill X\ntile _ floor cost 1 placeable\ntile X rock solid\ntile E gate cost 1 zone spawn\ntile C mark cost 1 zone goal\nroom hall 1 1 14 14 floor _\nentry north 8 15 glyph E\nentry west 1 8 glyph E\nentry south 8 1 glyph E\ngoal centre 8 8 glyph C\nprop pillar 4 11 size 1 1 blocks X\nprop pillar 12 4 size 1 1 blocks X\nprop torch 3 3 light torch #ff9a3c 1.6 r 3.5\nprop torch 13 13 light torch #ff9a3c 1.6 r 3.5\nprop crate 11 11 size 1 1","game.light":"amb #fff2e0 1.9","game.loot":"tick 1/60\nmagnet 2.5\nmagnettime 0.4\ncollect 0.4\nflytime 0.40\ncap 30\ncapmode merge\nscatter 0.3\npop pop\nseed 9\nitem gem\nitem heart\ntable imp rolls 1\n  drop gem 90\n  drop heart 10\ntable brute rolls 1\n  drop heart 100","game.menu":"tick 1/60\ntransition 0\nstart title\nscreen title\ntitle \"North Pole\"\nitem Play action emit play close\nscreen pause\ntitle \"Paused\"\nitem Resume action emit resume close\nitem Options action push options\nitem Menu action emit menu go title\nscreen options\ntitle \"Options\"\nsetting music range 0 10 default 7 step 1\nsetting sfx range 0 10 default 8 step 1\nsetting lighting enum high low off default high\nitem Back action pop\nscreen over\ntitle \"Year Report\"\nitem Again action emit again close\nitem Menu action emit menu go title","game.runtime":"tick 1/60\norder input steer move hit wave loot cam draw\nfreeze steer move wave loot\nfreezer hit\ndeath hit.kill target kill\nshake hit.hit 0.20 0.12\nkind hero hit hero collector camera leader\nkind imp hit imp swarm loot imp\nkind brute hit brute swarm loot brute","game.save":"version 1\nslots 1\nsection round","game.swarm":"tick 1/60\nseed 4\nfollow 0.9\nseparate 0.7\nspread 1.6\nslots 4\nstick 0.30\naccel 22\nspeed 2.2\nrecall 1.2\ngroup pack","game.tiles":"size 10\nseed 9\nchunk 8\nblend 2\nterrain floor glyphs _ color #6b5f52 #625648 rank 0\nterrain gate glyphs E color #3c6a8a #467ea0 rank 1\nterrain mark glyphs C color #7a6a40 #6e5f38 rank 1\nterrain rock glyphs X color #3a3742 #312e38 rank 3 wall #1e1c24\ndecal grit on floor density 0.35 color #85786a size 1 1\nprop pillar color #4a4652 size 7 13\nprop torch color #e0a040 size 3 6\nprop crate color #9a7040 size 7 7","game.ui":"action left ArrowLeft KeyA pad 14 \"Move left\"\naction right ArrowRight KeyD pad 15 \"Move right\"\naction up ArrowUp KeyW pad 12 \"Move up\"\naction down ArrowDown KeyS pad 13 \"Move down\"\naction act Enter Space pad 0 \"Confirm\"\naction pause Escape KeyP pad 9 \"Pause\"\nintent up up\nintent down down\nintent left left\nintent right right\nintent confirm act\nintent cancel pause\nopen pause pause\naxis x left right\naxis y down up\nslot 0","game.wave":"tick 1/60\nseed 7\nopen 0.30\nrest 1.20\nboss every 3\ntype imp threat 1\ntype brute threat 6\nmark north 8 15\nmark south 8 1\nmark west 1 8\nwave 1 budget 4\n  group imp 4 at north spacing 0.50 delay 0\nwave 2 budget 8\n  group imp 4 at south spacing 0.40 delay 0\n  group imp 3 at west spacing 0.60 delay 1.00\nwave 3 budget 14 boss\n  group imp 6 at north spacing 0.35 delay 0\n  group brute 1 at west spacing 0 delay 1.50","game.world":"view 160 160\nlayer ground tiles\nlayer things ysort\nlayer light light\nlook hero #7fc3ff 0.40 ring #ffffff\nlook imp #9ad06a 0.30\nlook brute #d04a4a 0.55","slice.clock":"tick 1/60\nseed 1\ndaylength 10\nseason spring days 1\nseason summer days 1\nseason fall days 1\nseason crunch days 1\ndeadline toys 8 by day 4\ncheckpoint toys 3 by day 2\neve","slice.job":"tick 1/60\nseed 1\nauto priority\nspace\ngrudge bram nim\nsnack cocoa from cocoapot\nwalk 4\ndrain 1\nrestore 5\ntired 0\nrepair 1.0\ncot at 2 8\njob toymaker station toymaker at 4 8\njob painter  station painter  at 5 8\njob repair\njob rest     station cot\njam painter\nworker holly\n  can toymaker painter repair rest\n  at 5 8\n  stamina 100\n  max 100\n  skill repair 2\nworker pip\n  can toymaker painter rest\n  at 4 8\n  stamina 8\n  max 8\nworker bram\n  can toymaker painter rest\n  at 3 8\n  stamina 100\n  max 100\nworker nim\n  can toymaker painter rest\n  at 6 8\n  stamina 100\n  max 100\nworker cedar\n  can painter rest\n  at 7 8\n  stamina 100\n  max 100\n  skill painter 1.5\n  likes cocoa","slice.scenario":"seed 1\nstage load  need piles.toys 8 weight 2\nstage route need houses 6\nmodifier rush  chance 0.5 stage load  add 2\nmodifier storm chance 0.5 stage route add 2","slice.stock":"tick 1/60\nseed 1\nresource wood cap 99\nresource paint cap 99\nresource unpainted cap 99\nresource toys cap 99\nresource cocoa cap 99\npile woodbin     has wood 24 at 4 8\npile paintpot    has paint 16 at 7 8\npile painterin   has unpainted 0 at 5 8\npile toypile     has toys 0 at 9 8\npile cocoapot    has cocoa 6 at 2 6\nstation toymaker\n  in wood 1\n  out unpainted 1\n  time 2.0\n  pilein woodbin\n  pileout painterin\nstation painter\n  in unpainted 1 from painterin\n  in paint 1 from paintpot\n  out toys 1 to toypile\n  time 2.5\nquota toys 8"} || {}, slug = ST.cfg.slug;
+const okProbe = !!ST.store.ok;                                   // the core's own localStorage probe (save.js)
+let ls = null; if (okProbe) { try { ls = root.localStorage; } catch (e) { ls = null; } }
+const backend = ls ? ST.SAVE.localStorage(ls) : ST.SAVE.memory();
+const saveSpec = ST.SAVE.parse(D["game.save"] || "section round");
+if (saveSpec.prefix === "save") saveSpec.prefix = slug; if (!saveSpec.game) saveSpec.game = slug;
+const desk = (ST.cfg.addons || []).indexOf("desktop") >= 0;
+const pending = [];
+const SH = ST.SH = ST.SHELL.create(D["game.ui"] || "", { lib: ST, menu: D["game.menu"] || "", save: saveSpec, backend: backend, bind: { on: function (t, e) { pending.push([t, e]); } } });
+const M = SH.menu, store = SH.save.storeAdapter();
+const MISS = {}, BAD = {}, LEG_MARK = "legacy-migrated", pfx = saveSpec.prefix + ":store:";
+const legList = String(D["game.legacy"] || "").replace(/\{slug\}/g, slug).split(/\s+/).filter(Boolean);
+const LEGACY = legList.indexOf("off") >= 0 ? [] : [slug + "-muted", ST.save.key(), slug + "-desktop"].concat(legList).filter((k, i, a) => a.indexOf(k) === i);
+const has = k => backend.getItem(pfx + k) != null || backend.getItem(pfx + k + ".bak") != null || store.get(k, MISS) !== MISS;
+const rawOf = k => { let r = null; if (!ls) return MISS; try { r = ls.getItem(k); } catch (e) { return MISS; } if (r == null) return MISS; try { return JSON.parse(r); } catch (e) { return BAD; } };
+let legDone = !LEGACY.length || !ls || has(LEG_MARK);
+SH.legacy = { keys: LEGACY.slice(), report: null };
+function adoptLegacy() {
+if (legDone || Object.values(ST.sw || {}).some(Boolean)) return null;   // robot switches on = never write
+const rep = { v: 1, copied: [], kept: [], bad: [] };
+for (const k of LEGACY) { const r = rawOf(k); if (r === MISS) continue; if (has(k)) rep.kept.push(k); else if (r === BAD) rep.bad.push(k); else { store.set(k, r); rep.copied.push(k); } }
+if (rep.copied.length + rep.kept.length + rep.bad.length) store.set(LEG_MARK, rep);
+legDone = true; SH.legacy.report = rep; return rep;
+}
+const getOld = (k, def) => { if (!legDone && LEGACY.indexOf(k) >= 0 && !has(k)) { const r = rawOf(k); if (r !== MISS && r !== BAD) return r; } return def; };
+ST.store = { get ok() { return okProbe && !!ls; }, get: function (k, def) { const v = store.get(k, MISS); return v !== MISS ? v : getOld(k, def); }, set: function (k, v) { if (ST.switched) return false; return store.set(k, v); } };
+ST.sound.muted = ST.store.get(slug + "-muted", false) === true;
+const SCREEN = { title: "title", paused: "pause", over: "over" };
+let syncing = false;
+const rowId = r => { for (const a of r.actions || []) if (a.type === "emit") return a.name + (a.arg ? "-" + a.arg : ""); return String(r.name).toLowerCase(); };
+const rows = () => M.view().rows;
+function focusTo(i) { const n = rows().length; for (let k = 0; k < n && M.focus() !== i; k++) M.press("down"); }
+function choose(i) { focusTo(i); M.press("confirm"); drain(); }
+function closeAll() {
+syncing = true;
+for (let k = 0; k < 8 && M.stack().length; k++) { const i = rows().findIndex(r => (r.actions || []).some(a => a.type === "close")); if (i >= 0) { focusTo(i); M.press("confirm"); } else M.back(); if (M.stack().length === 1 && i < 0) break; }
+pending.length = 0; syncing = false;
+}
+function drain() {
+while (pending.length) {
+const [t, e] = pending.shift(); if (syncing) continue;
+if (t === "menu.open") { focusTo(0); if (e.screen === SCREEN.paused && ST.scene === "play") { ST.go("paused"); ST.sfx("tap"); } }
+else if (t === "menu.play" || t === "menu.again") { ST.start(); }
+else if (t === "menu.resume") { if (ST.scene === "paused") { ST.go("play"); ST.sfx("tap"); } }
+else if (t === "menu.menu") { if (ST.scene !== "title") { ST.go("title"); ST.sfx("tap"); } focusTo(0); }
+else if (t === "menu.cancel") { const i = rows().findIndex(r => rowId(r) === "resume"); if (i >= 0) choose(i); }
+else if (t === "menu.push") focusTo(0);
+else if (t === "save.write" || t === "save.read") ST.sfx("tap");
+else if (desk && ST.DS && t === "shell.rebind") ST.DS.rebind(e.action, e.code);   // Desktop's table: it persists it
+else if (desk && ST.DS && t === "shell.keys-reset") ST.DS.resetKeys();
+}
+}
+const go0 = ST.go; ST.go = s => {
+go0(s); if (syncing) return;
+const want = SCREEN[s];
+if (s === "play") { if (M.stack().length) closeAll(); }
+else if (want && M.top() !== want) { syncing = true; M.open(want); focusTo(0); pending.length = 0; syncing = false; }
+};
+let inKey = null;
+const live = () => ST.scene === "play" || ST.scene in SCREEN;
+function feed(code, down) {
+if (!live()) return;
+if (down && ST.scene === "over" && ST.sceneT <= 0.6 && !SH.capturing()) return;   // no accidental AGAIN from a frantic key
+SH.key(code, down); SH.step(); drain();
+}
+addEventListener("keydown", e => { if (e.repeat) return; inKey = e.code; feed(e.code, true); }, true);
+addEventListener("keyup", e => feed(e.code, false), true);
+addEventListener("keydown", () => { inKey = null; });              // after input.js (bubble): the key event is over
+const moved = code => { for (const n of SH.spec.order) if (SH.spec.actions[n].codes.indexOf(code) >= 0) return true; return false; };
+const canon = code => { const c = SH.canon(code); return c != null ? c : (moved(code) ? null : code); };
+if (!desk) {
+const K = ST.keys, add0 = K.add.bind(K), del0 = K.delete.bind(K);
+K.add = code => { if (SH.capturing() || ST.scene !== "play") return K; const c = canon(code); if (c) add0(c); return K; };
+K.delete = code => { const c = canon(code); if (c) del0(c); return del0(code); };
+}
+const opensMenu = code => SH.actionsOf(code).some(n => SH.spec.opens.some(o => o.action === n));
+const key0 = ST.onKey; ST.onKey = code => {
+const fromKeyboard = inKey !== null;                           // during a key event (Desktop may hand us its canonical code)
+if (!fromKeyboard) { if (ST.scene in SCREEN || (ST.scene === "play" && opensMenu(code))) { SH.key(code, true); SH.key(code, false); SH.step(); drain(); return; } }
+if (ST.sw && ST.sw.tour && code === "F8") return key0(code);   // robot screen tour only
+if (ST.scene in SCREEN) return;                                 // Menuspell has it (fed above)
+if (ST.scene === "play") { if (fromKeyboard && opensMenu(code)) return; const c = desk ? code : canon(code); if (c != null) key0(c); return; }
+key0(code);
+};
+const clr0 = ST.clearInput; ST.clearInput = why => { clr0(why); SH.clear(); };
+const press0 = ST.press; ST.press = id => {
+if (id === "pause" && ST.scene === "play") { M.open(SCREEN.paused); drain(); return; }
+if (ST.scene in SCREEN) { const i = rows().findIndex(r => rowId(r) === id); if (i >= 0) { choose(i); return; } }
+press0(id);
+};
+function menuRows(y) {
+const R = rows(), f = M.focus(), per = R.length > 4 ? 3 : R.length, B = SH.bindings();
+for (let i = 0; i < R.length; i += per) {
+y = ST.row(R.slice(i, i + per).map((r, k) => {
+let label = String(r.label).toUpperCase(); const a = (r.actions || []).find(x => x.type === "emit" && x.name === "rebind" && x.arg);
+if (a) label += " " + (SH.capturing() === a.arg ? "?" : ((B[a.arg] || [])[0] || "-").replace(/^Key|^Arrow/, ""));
+return { id: rowId(r), label: label, on: i + k === f };
+}), y) + 8;
+}
+return y;
+}
+const title0 = ST.drawTitle;
+ST.drawTitle = () => {
+if (M.top() !== SCREEN.title) return title0();
+const T = ST.G.title, big = ST.fs * 1.5; let y = ST.small ? 50 : 60;
+ST.text(T.name, ST.cw / 2, y, ST.theme.on, big, "c"); y += 7 * big + (ST.small ? 6 : 12);
+y = ST.lines(T.lines || [], y, ST.theme.text, ST.small ? 1 : ST.fs * 0.75) + (ST.small ? 4 : 10);
+if (ST.sw.card) { ST.text(T.cardLine || "PLAY IT RIGHT HERE IN THE POST", ST.cw / 2, y + 8, ST.theme.text, ST.fs, "c"); return; }
+y = menuRows(y);
+if (T.footer) { const f = T.footer(); if (f) ST.text(f, ST.cw / 2, y + 8, ST.theme.text, ST.small ? 1 : ST.fs * 0.75, "c"); }
+};
+ST.drawPaused = () => {
+ST.veil(0.72); const y = ST.small ? 56 : 90, v = M.view();
+ST.text(String(v.title || "PAUSED").toUpperCase(), ST.cw / 2, y, ST.theme.on, ST.fs * 1.5, "c");
+menuRows(y + 7 * ST.fs * 1.5 + 14);
+};
+ST.drawOver = () => {
+const o = ST.overInfo || { title: "GAME OVER", lines: [] }, big = ST.fs * 1.5;
+ST.veil(o.win ? 0.4 : 0.55); let y = ST.small ? 50 : 70;
+ST.text(o.title, ST.cw / 2, y, o.win ? ST.theme.on : "#e0525e", big, "c"); y += 7 * big + 10;
+y = ST.lines(o.lines || [], y, ST.theme.text, ST.small ? 1 : ST.fs * 0.75) + 6;
+menuRows(y);
+};
+const run0 = ST.run; ST.run = G => {
+adoptLegacy();                                                 // before the core's ST.save.load (switches are known now)
+if (G.saveState) SH.save.register("round", G.saveState);
+if (desk && ST.DS && ST.DS.keys) SH.adopt(ST.DS.keys);
+return run0(G);
+};
+})(typeof window !== "undefined" ? window : globalThis);
+(function (root) {
+"use strict";
+const KEYS = { base: 1, image: 1, sheet: 1, sound: 1, voice: 1, bus: 1, duck: 1, group: 1, on: 1, sprite: 1 };
+function words(line) { const out = []; const re = /"([^"]*)"|(\S+)/g; let m; while ((m = re.exec(line))) out.push(m[1] != null ? m[1] : m[2]); return out; }
+function parse(text) {
+const S = { base: "", items: {}, order: [], buses: { master: { vol: 1, max: 0 } }, busOrder: ["master"], ducks: [], groups: {}, on: [], sprites: {}, errors: [] };
+String(text || "").split("\n").forEach(function (raw, i) {
+const line = raw.replace(/#.*$/, "").trim(); if (!line) return;
+const t = words(line), k = t[0], n = i + 1, err = function (m) { S.errors.push("line " + n + ": " + m); };
+if (!KEYS[k]) return err("unknown keyword " + k);
+const opt = function (name, d) { const j = t.indexOf(name, 2); return j > 0 && t[j + 1] != null ? t[j + 1] : d; };
+const add = function (name, it) { if (S.items[name]) return err("duplicate name " + name); S.items[name] = it; S.order.push(name); };
+if (k === "base") S.base = t[1] || "";
+else if (k === "image") { if (t.length < 3) return err("image NAME FILE"); add(t[1], { kind: "image", file: t[2] }); }
+else if (k === "sheet") { if (t.length < 5 || !(+t[3] > 0) || !(+t[4] > 0)) return err("sheet NAME FILE W H"); add(t[1], { kind: "sheet", file: t[2], w: +t[3], h: +t[4] }); }
+else if (k === "sound" || k === "voice") { if (t.length < 3) return err(k + " NAME FILE bus BUS"); add(t[1], { kind: "sound", voice: k === "voice", file: t[2], bus: opt("bus", k === "voice" ? "vo" : "sfx"), vol: +opt("vol", 1) }); }
+else if (k === "bus") { if (t.length < 3 || !(+t[2] >= 0)) return err("bus NAME VOL [max N]"); if (S.buses[t[1]] && t[1] !== "master") return err("duplicate bus " + t[1]); S.buses[t[1]] = { vol: +t[2], max: +opt("max", 0) | 0 }; if (S.busOrder.indexOf(t[1]) < 0) S.busOrder.push(t[1]); }
+else if (k === "duck") { if (t[2] !== "by" || t.length < 5) return err("duck BUS by BUS LEVEL [fade S]"); S.ducks.push({ bus: t[1], by: t[3], level: +t[4], fade: +opt("fade", 0.08) }); }
+else if (k === "group") S.groups[t[1]] = t.slice(2);
+else if (k === "on") { if (t.length < 3) return err("on EVENT SOUND"); S.on.push({ ev: t[1], sound: t[2] }); }
+else if (k === "sprite") { if (t.length < 4) return err("sprite KIND SHEET FRAME [scale S]"); S.sprites[t[1]] = { sheet: t[2], frame: +t[3] | 0, scale: +opt("scale", 1) }; }
+});
+for (const n of S.order) { const it = S.items[n]; if (it.kind === "sound" && !S.buses[it.bus]) S.errors.push(n + ": bus " + it.bus + " not declared"); }
+for (const d of S.ducks) { if (!S.buses[d.bus]) S.errors.push("duck: bus " + d.bus + " not declared"); if (!S.buses[d.by]) S.errors.push("duck: bus " + d.by + " not declared"); }
+for (const g in S.groups) for (const n of S.groups[g]) if (!S.items[n]) S.errors.push("group " + g + ": no item " + n);
+for (const o of S.on) if (!S.items[o.sound] || S.items[o.sound].kind !== "sound") S.errors.push("on " + o.ev + ": no sound " + o.sound);
+for (const k in S.sprites) { const it = S.items[S.sprites[k].sheet]; if (!it || it.kind !== "sheet") S.errors.push("sprite " + k + ": no sheet " + S.sprites[k].sheet); }
+return S;
+}
+function sniff(u8) {
+if (!u8 || u8.length < 4) return null;
+const s = String.fromCharCode(u8[0], u8[1], u8[2], u8[3]);
+if (s === "RIFF") return "wav"; if (s === "OggS") return "ogg"; if (s.slice(0, 3) === "ID3" || (u8[0] === 0xff && (u8[1] & 0xe0) === 0xe0)) return "mp3";
+if (u8[0] === 0x89 && s.slice(1) === "PNG") return "png"; return null;
+}
+function create(text, opt) {
+opt = opt || {};
+const spec = typeof text === "string" ? parse(text) : text;
+const A = { spec: spec }, cache = {}, pending = {}, reported = {}, all = [], loads = [];
+const loader = opt.loader || null, decoder = opt.decoder || null, bind = opt.bind || {};
+let ctx = null, dest = null, gains = {}, live = {}, serial = 0, R0 = null;
+function emit(type, ev) { ev = ev || {}; all.push([type, ev]); try { if (bind.on) bind.on("asset." + type, ev); else if (R0) R0.emit("asset." + type, ev); } catch (e) {} }
+function placeholder(w, h) {
+if (opt.canvas) { const c = opt.canvas(w, h), g = c.getContext("2d"); g.fillStyle = "#ff00ff"; g.fillRect(0, 0, w, h); g.fillStyle = "#000000"; g.fillRect(0, 0, w / 2, h / 2); g.fillRect(w / 2, h / 2, w / 2, h / 2); g.fillStyle = "#ff00ff"; g.fillRect(w / 4, h / 4, w / 2, h / 2); c.placeholder = true; return c; }
+return { placeholder: true, width: w, height: h };
+}
+function bad(name, kind, why) { if (reported[name]) return; reported[name] = 1; emit(kind, { name: name, why: why }); }
+function loadOne(name) {
+const it = spec.items[name];
+if (!it) { bad(name, "missing", "not in manifest"); return Promise.resolve(null); }
+if (cache[name] !== undefined) return Promise.resolve(cache[name]);
+if (pending[name]) return pending[name];
+if (!loader) { bad(name, "error", "no loader"); cache[name] = null; return Promise.resolve(null); }
+const url = spec.base + it.file; loads.push(url);
+const p = (it.kind === "sound" ? Promise.resolve().then(function () { return loader.bytes(url); }).then(function (b) {
+if (b == null) { bad(name, "missing", url); return null; }
+if (!decoder) { bad(name, "error", "no decoder"); return null; }
+return Promise.resolve().then(function () { return decoder(b); }).then(function (buf) { emit("load", { name: name, kind: "sound", url: url, length: buf && buf.duration }); return buf; }, function (e) { bad(name, "error", "decode " + url); return null; });
+}) : Promise.resolve().then(function () { return loader.image(url); }).then(function (img) {
+if (img == null) { bad(name, "missing", url); return null; }
+emit("load", { name: name, kind: it.kind, url: url, w: img.width, h: img.height }); return img;
+})).then(null, function (e) { bad(name, e && e.missing ? "missing" : "error", url); return null; })
+.then(function (v) { cache[name] = v; delete pending[name]; return v; });
+pending[name] = p; return p;
+}
+A.preload = function (group) {
+const names = group == null ? spec.order.slice() : (spec.groups[group] || []);
+return Promise.all(names.map(loadOne)).then(function () { const pr = A.progress(group); emit("ready", { group: group || "*", done: pr.done, total: pr.total, failed: pr.failed }); return pr; });
+};
+A.progress = function (group) {
+const names = group == null ? spec.order : (spec.groups[group] || []);
+let done = 0, failed = 0; for (const n of names) if (cache[n] !== undefined) { done++; if (cache[n] === null) failed++; }
+return { total: names.length, done: done, failed: failed };
+};
+A.ready = function (group) { const p = A.progress(group); return p.done === p.total; };
+A.has = function (name) { return !!spec.items[name]; };
+A.get = function (name) {
+const it = spec.items[name], v = cache[name];
+if (it && v) return v;
+if (!it) bad(name, "missing", "not in manifest");            // still loading (undefined) = placeholder, no event; failed (null) = reported at load
+if (it && it.kind === "sound") return null;
+return placeholder(it && it.kind === "sheet" ? it.w : 16, it && it.kind === "sheet" ? it.h : 16);
+};
+A.frame = function (name, i) {
+const it = spec.items[name], img = cache[name];
+if (!it || it.kind !== "sheet" || !img) { const ph = A.get(name); return { img: ph, sx: 0, sy: 0, sw: ph.width, sh: ph.height, placeholder: true }; }
+const cols = Math.max(1, Math.floor(img.width / it.w)), rows = Math.max(1, Math.floor(img.height / it.h));
+if (!(i >= 0 && i < cols * rows)) { bad(name + "#" + i, "missing", "frame out of range"); const ph = placeholder(it.w, it.h); return { img: ph, sx: 0, sy: 0, sw: it.w, sh: it.h, placeholder: true }; }
+return { img: img, sx: (i % cols) * it.w, sy: Math.floor(i / cols) * it.h, sw: it.w, sh: it.h };
+};
+A.unlock = function (c, d) {
+if (ctx || !c) return A; ctx = c; dest = d || c.destination;
+gains.master = c.createGain(); gains.master.gain.value = spec.buses.master.vol; gains.master.connect(dest);
+for (const b of spec.busOrder) if (b !== "master") { const g = c.createGain(); g.gain.value = spec.buses[b].vol; g.connect(gains.master); gains[b] = g; live[b] = []; }
+emit("unlock", { buses: Object.keys(gains) }); return A;
+};
+A.unlocked = function () { return !!ctx; };
+A.bus = function (name) { return gains[name] || null; };
+A.setBus = function (name, v) { if (spec.buses[name]) spec.buses[name].vol = v; if (gains[name]) gains[name].gain.value = v; return A; };
+A.mute = function (on) { if (gains.master) gains.master.gain.value = on ? 0 : spec.buses.master.vol; return A; };
+A.play = function (name, o) {
+o = o || {}; const it = spec.items[name];
+if (!it || it.kind !== "sound") { bad(name, "missing", "no sound"); return null; }
+if (!ctx) { emit("locked", { name: name }); return null; }
+const buf = cache[name]; if (!buf) return null;            // not loaded yet, or failed (reported at load)
+const bus = o.bus || it.bus, cap = spec.buses[bus] ? spec.buses[bus].max : 0, now = ctx.currentTime, L = live[bus] || (live[bus] = []);
+for (let j = L.length - 1; j >= 0; j--) if (L[j].end <= now) L.splice(j, 1);
+if (cap > 0 && L.length >= cap) { const old = L.shift(); try { old.src.stop(); } catch (e) {} emit("steal", { name: old.name, bus: bus, by: name }); }
+const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; g.gain.value = (o.vol == null ? 1 : o.vol) * it.vol;
+src.connect(g); g.connect(gains[bus] || gains.master); src.start(now + (o.delay || 0));
+const id = ++serial, end = now + (o.delay || 0) + (buf.duration || 0); L.push({ id: id, name: name, src: src, end: end });
+for (const d of spec.ducks) if (d.by === bus && gains[d.bus]) {
+const p = gains[d.bus].gain, full = spec.buses[d.bus].vol, t0 = now + (o.delay || 0);
+if (p.cancelScheduledValues) p.cancelScheduledValues(t0);
+p.setTargetAtTime(full * d.level, t0, d.fade / 3); p.setTargetAtTime(full, end, d.fade / 3);
+emit("duck", { bus: d.bus, by: bus, level: d.level, from: t0, to: end });
+}
+emit("play", { name: name, bus: bus, id: id, live: L.length }); return id;
+};
+A.live = function (bus) { const now = ctx ? ctx.currentTime : 0; return (live[bus] || []).filter(function (v) { return v.end > now; }).length; };
+A.watch = function (R) {
+if (!R || R0 === R) return A; R0 = R;
+for (const o of spec.on) (function (o) { R.on(o.ev, function () { A.play(o.sound); }); })(o);
+R.service("assets", A); return A;
+};
+A.system = function (so) { so = so || {}; if (so.R) A.watch(so.R); return { phase: so.phase || "fx", spell: A, step: function () {} }; };
+A.drawSprites = function (g, W, bodies, o2) {
+const v = W.view(), k = (W.spec && W.spec.view ? W.spec.view.w : v.w) / v.w, drawn = [];
+for (const b of bodies || []) {
+const sp = spec.sprites[b.kind]; if (!sp) continue;
+const f = A.frame(sp.sheet, sp.frame), p = W.toScreen(b.x, b.y, v), w = f.sw * sp.scale * (o2 && o2.px || 1), h = f.sh * sp.scale * (o2 && o2.px || 1);
+if (g && g.drawImage) g.drawImage(f.img, f.sx, f.sy, f.sw, f.sh, Math.round(p.x - w / 2), Math.round(p.y - h / 2), w, h);
+drawn.push([b.kind, Math.round(p.x), Math.round(p.y), f.placeholder ? "placeholder" : sp.sheet + ":" + sp.frame]);
+}
+return drawn;
+};
+A.events = function () { return all.slice(); };
+A.loads = function () { return loads.slice(); };
+A.errors = function () { return spec.errors.slice(); };
+return A;
+}
+function browserLoader(o) {
+o = o || {}; const files = o.files || null;     // files: { url: dataURL } = offline inline (bench page)
+const src = function (u) { return files ? files[u] : (o.root || "") + u; };   // root: where the manifest's paths start (default: the page)
+const b64 = function (d) { const s = atob(d.slice(d.indexOf(",") + 1)), u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i); return u8.buffer; };
+const get = function (u, typ) {                 // same-origin file load (no fetch: the Starter robot forbids it in game.html)
+return new Promise(function (res, rej) {
+const x = new XMLHttpRequest();
+x.open("GET", src(u), true); x.responseType = typ;
+x.onload = function () {
+if (x.status >= 200 && x.status < 300) res(x.response);
+else { const e = new Error("http " + x.status); e.missing = x.status === 404; rej(e); }
+};
+x.onerror = function () { rej(new Error("http 0")); };
+x.send();
+});
+};
+return {
+image: function (u) {
+const fromSrc = function (s, done) { return new Promise(function (res, rej) { const im = new Image(); im.onload = function () { if (done) done(); res(im); }; im.onerror = function () { if (done) done(); rej(new Error("image " + u)); }; im.src = s; }); };
+if (files) { if (!files[u]) { const e = new Error("missing " + u); e.missing = true; return Promise.reject(e); } return fromSrc(files[u]); }
+return get(u, "blob").then(function (b) { const url = URL.createObjectURL(b); return fromSrc(url, function () { URL.revokeObjectURL(url); }); });
+},
+bytes: function (u) { if (files && !files[u]) { const e = new Error("missing " + u); e.missing = true; return Promise.reject(e); } if (files) return Promise.resolve(b64(files[u]));                // inline data: decoded here, no request
+return get(u, "arraybuffer"); }
+};
+}
+function browserDecoder() {
+let oc = null;
+return function (ab) { if (!oc) { const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext; oc = new OAC(1, 1, 44100); } return oc.decodeAudioData(ab.slice ? ab.slice(0) : ab); };
+}
+const api = { parse: parse, create: create, sniff: sniff, browserLoader: browserLoader, browserDecoder: browserDecoder, version: "0.1.1" };
+if (typeof module !== "undefined" && module.exports) module.exports = api;
+if (root) (root.ST || (root.ST = {})).ASSET = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+(function (root) {
+"use strict";
+const ST = root.ST, A0 = ST && ST.ASSET; if (!A0) return;
+const D = {"game.assets":"base assets/\nsheet units units.png 16 16\nsound hit hit.wav bus sfx vol 0.7\nsound get get.ogg bus sfx\nbus music 0.6\nbus sfx 1 max 6\nbus vo 1\nduck music by vo 0.25 fade 0.1\ngroup boot units hit get\non hit.hit hit\nsprite hero units 1 scale 0.5\nsprite imp units 2 scale 0.4\nsprite brute units 0 scale 0.6","game.cam":"tick 1/60\nview 160 160\nroom 16 16\ncell 10\ndeadzone 1.5 1\nsmooth 8\nlookahead 1.5","game.hit":"tick 1/60\nseed 99\nhitstop-cap 0.12\nhurt hero hp 300 team blue r 0.45 iframe 0.40\nhurt imp hp 10 team red r 0.35 iframe 0.05\nhurt brute hp 40 team red r 0.70 iframe 0.15\natk jab startup 0.04 active 0.08 recover 0.10 dmg 6 type slash box circle 0.6 reach 0.6 knock 2.5 hitstop 0.04 crit 0.20 mul 1.75\natk claw startup 0.25 active 0.10 recover 0.40 dmg 5 type slash box circle 0.4 reach 0.5","game.level":"size 16 16\ncell 1\nfill X\ntile _ floor cost 1 placeable\ntile X rock solid\ntile E gate cost 1 zone spawn\ntile C mark cost 1 zone goal\nroom hall 1 1 14 14 floor _\nentry north 8 15 glyph E\nentry west 1 8 glyph E\nentry south 8 1 glyph E\ngoal centre 8 8 glyph C\nprop pillar 4 11 size 1 1 blocks X\nprop pillar 12 4 size 1 1 blocks X\nprop torch 3 3 light torch #ff9a3c 1.6 r 3.5\nprop torch 13 13 light torch #ff9a3c 1.6 r 3.5\nprop crate 11 11 size 1 1","game.light":"amb #fff2e0 1.9","game.loot":"tick 1/60\nmagnet 2.5\nmagnettime 0.4\ncollect 0.4\nflytime 0.40\ncap 30\ncapmode merge\nscatter 0.3\npop pop\nseed 9\nitem gem\nitem heart\ntable imp rolls 1\n  drop gem 90\n  drop heart 10\ntable brute rolls 1\n  drop heart 100","game.menu":"tick 1/60\ntransition 0\nstart title\nscreen title\ntitle \"North Pole\"\nitem Play action emit play close\nscreen pause\ntitle \"Paused\"\nitem Resume action emit resume close\nitem Options action push options\nitem Menu action emit menu go title\nscreen options\ntitle \"Options\"\nsetting music range 0 10 default 7 step 1\nsetting sfx range 0 10 default 8 step 1\nsetting lighting enum high low off default high\nitem Back action pop\nscreen over\ntitle \"Year Report\"\nitem Again action emit again close\nitem Menu action emit menu go title","game.runtime":"tick 1/60\norder input steer move hit wave loot cam draw\nfreeze steer move wave loot\nfreezer hit\ndeath hit.kill target kill\nshake hit.hit 0.20 0.12\nkind hero hit hero collector camera leader\nkind imp hit imp swarm loot imp\nkind brute hit brute swarm loot brute","game.save":"version 1\nslots 1\nsection round","game.swarm":"tick 1/60\nseed 4\nfollow 0.9\nseparate 0.7\nspread 1.6\nslots 4\nstick 0.30\naccel 22\nspeed 2.2\nrecall 1.2\ngroup pack","game.tiles":"size 10\nseed 9\nchunk 8\nblend 2\nterrain floor glyphs _ color #6b5f52 #625648 rank 0\nterrain gate glyphs E color #3c6a8a #467ea0 rank 1\nterrain mark glyphs C color #7a6a40 #6e5f38 rank 1\nterrain rock glyphs X color #3a3742 #312e38 rank 3 wall #1e1c24\ndecal grit on floor density 0.35 color #85786a size 1 1\nprop pillar color #4a4652 size 7 13\nprop torch color #e0a040 size 3 6\nprop crate color #9a7040 size 7 7","game.ui":"action left ArrowLeft KeyA pad 14 \"Move left\"\naction right ArrowRight KeyD pad 15 \"Move right\"\naction up ArrowUp KeyW pad 12 \"Move up\"\naction down ArrowDown KeyS pad 13 \"Move down\"\naction act Enter Space pad 0 \"Confirm\"\naction pause Escape KeyP pad 9 \"Pause\"\nintent up up\nintent down down\nintent left left\nintent right right\nintent confirm act\nintent cancel pause\nopen pause pause\naxis x left right\naxis y down up\nslot 0","game.wave":"tick 1/60\nseed 7\nopen 0.30\nrest 1.20\nboss every 3\ntype imp threat 1\ntype brute threat 6\nmark north 8 15\nmark south 8 1\nmark west 1 8\nwave 1 budget 4\n  group imp 4 at north spacing 0.50 delay 0\nwave 2 budget 8\n  group imp 4 at south spacing 0.40 delay 0\n  group imp 3 at west spacing 0.60 delay 1.00\nwave 3 budget 14 boss\n  group imp 6 at north spacing 0.35 delay 0\n  group brute 1 at west spacing 0 delay 1.50","game.world":"view 160 160\nlayer ground tiles\nlayer things ysort\nlayer light light\nlook hero #7fc3ff 0.40 ring #ffffff\nlook imp #9ad06a 0.30\nlook brute #d04a4a 0.55","slice.clock":"tick 1/60\nseed 1\ndaylength 10\nseason spring days 1\nseason summer days 1\nseason fall days 1\nseason crunch days 1\ndeadline toys 8 by day 4\ncheckpoint toys 3 by day 2\neve","slice.job":"tick 1/60\nseed 1\nauto priority\nspace\ngrudge bram nim\nsnack cocoa from cocoapot\nwalk 4\ndrain 1\nrestore 5\ntired 0\nrepair 1.0\ncot at 2 8\njob toymaker station toymaker at 4 8\njob painter  station painter  at 5 8\njob repair\njob rest     station cot\njam painter\nworker holly\n  can toymaker painter repair rest\n  at 5 8\n  stamina 100\n  max 100\n  skill repair 2\nworker pip\n  can toymaker painter rest\n  at 4 8\n  stamina 8\n  max 8\nworker bram\n  can toymaker painter rest\n  at 3 8\n  stamina 100\n  max 100\nworker nim\n  can toymaker painter rest\n  at 6 8\n  stamina 100\n  max 100\nworker cedar\n  can painter rest\n  at 7 8\n  stamina 100\n  max 100\n  skill painter 1.5\n  likes cocoa","slice.scenario":"seed 1\nstage load  need piles.toys 8 weight 2\nstage route need houses 6\nmodifier rush  chance 0.5 stage load  add 2\nmodifier storm chance 0.5 stage route add 2","slice.stock":"tick 1/60\nseed 1\nresource wood cap 99\nresource paint cap 99\nresource unpainted cap 99\nresource toys cap 99\nresource cocoa cap 99\npile woodbin     has wood 24 at 4 8\npile paintpot    has paint 16 at 7 8\npile painterin   has unpainted 0 at 5 8\npile toypile     has toys 0 at 9 8\npile cocoapot    has cocoa 6 at 2 6\nstation toymaker\n  in wood 1\n  out unpainted 1\n  time 2.0\n  pilein woodbin\n  pileout painterin\nstation painter\n  in unpainted 1 from painterin\n  in paint 1 from paintpot\n  out toys 1 to toypile\n  time 2.5\nquota toys 8"}, text = D && D["game.assets"];
+if (text == null) return;
+const log = [];                                   // ordered: load / tap / context / play (robot + checks read it)
+const A = A0.create(text, { loader: A0.browserLoader(), decoder: A0.browserDecoder(), canvas: function (w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; },
+bind: { on: function (t, e) { log.push([t.slice(6), e && e.name || ""]); if (A.R && A.R.emit) A.R.emit(t, e); } } });
+const watch0 = A.watch; A.watch = function (R) { A.R = R; return watch0(R); };
+ST.asset = A; ST.assetLog = log;
+A.preload("boot");
+for (const type of ["pointerup", "touchend", "click", "keydown"]) root.addEventListener(type, function () { if (!log.some(function (e) { return e[0] === "tap"; })) log.push(["tap", type]); }, { capture: true, passive: true });
+const start0 = ST.startSound;
+ST.startSound = function () {
+const r = start0.apply(this, arguments);
+const S = ST.sound; if (S && S.ac && S.master && !A.unlocked()) { log.push(["context", "audio.js"]); A.unlock(S.ac, S.master); }
+return r;
+};
+const sfx0 = ST.sfx;
+ST.sfx = function (name) {
+const it = A.spec.items[name];
+if (it && it.kind === "sound" && A.get(name)) { if (ST.sound.muted || document.hidden) return; if (A.play(name) != null) return; }
+return sfx0(name);
+};
+const gs0 = root.__gs;
+if (typeof gs0 === "function") root.__gs = function () { const o = gs0.apply(this, arguments); if (o && typeof o === "object") o.assets = { progress: A.progress("boot"), unlocked: A.unlocked(), plays: log.filter(function (e) { return e[0] === "play"; }).length }; return o; };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+(function (root) {
+"use strict";
+const SRC = ["sine", "tri", "square", "saw", "pulse", "noise", "fm", "pluck", "kick", "snare", "hat"], DRUM = { kick: 1, snare: 1, hat: 1 };
+const isNum = w => w != null && w !== "" && !isNaN(+w), TAU = Math.PI * 2;
+const NOTE = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }, NAMES = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
+const midi = w => { const m = /^([a-g])(#|b)?(-?\d)$/i.exec(w); return m ? NOTE[m[1].toLowerCase()] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) + 12 * (+m[3] + 1) : NaN; };
+const hz = m => 440 * 2 ** ((m - 69) / 12);
+const rng = s => () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const hashS = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+function lines(text) { const out = [];
+String(text || "").split(/\n/).forEach((raw, li) => { const c = raw.search(/(^|\s)# /); const s = c >= 0 ? raw.slice(0, c) : raw;
+for (const st of s.split(";")) { const w = st.trim().split(/\s+/).filter(Boolean); if (w.length) out.push({ w, li: li + 1, raw: st.trim() }); } });
+return out; }
+function notes(words, err) {
+const tk = words.join(" ").replace(/\[/g, " [ ").replace(/\](\*\d+)?/g, m => " " + m + " ").split(/\s+/).filter(Boolean); let i = 0;
+const seq = () => { const out = []; let at = 0;
+while (i < tk.length) { const t = tk[i++];
+if (t === "[") { const g = seq(), close = tk[i - 1] || "", n = /^\]\*(\d+)$/.test(close) ? +close.slice(2) : 1; if (close[0] !== "]") err("a [ group needs its ]");
+for (let k = 0; k < n; k++) { for (const e of g.ev) out.push(Object.assign({}, e, { at: at + e.at })); at += g.len; } continue; }
+if (t[0] === "]") return { ev: out, len: at };
+const m = /^([^:]+)(?::(\d+(?:\.\d+)?))?$/.exec(t), len = m && m[2] ? +m[2] : 1, w = m ? m[1] : "";
+if (w === ".") { at += len; continue; }
+if (w === "x" || w === "o") { out.push({ at, len, m: null, vel: w === "x" ? 1 : 0.5 }); at += len; continue; }
+const ms = w.split("+").map(midi); if (!m || ms.some(isNaN)) { err(`"${t}" is not a note (d3, f#4, eb2, d3+f3 chord, x, o, ., :N steps, [ ]*N)`); at += len; continue; }
+out.push({ at, len, m: ms, vel: 1 }); at += len; }
+return { ev: out, len: at }; };
+return seq();
+}
+function laneSeq(words, err) { const tk = words.join(" ").replace(/\[/g, " [ ").replace(/\](\*\d+)?/g, m => " " + m + " ").split(/\s+/).filter(Boolean); let i = 0;
+const seq = () => { const out = []; let at = 0;
+while (i < tk.length) { const t = tk[i++];
+if (t === "[") { const g = seq(), close = tk[i - 1] || "", n = /^\]\*(\d+)$/.test(close) ? +close.slice(2) : 1; for (let k = 0; k < n; k++) { for (const e of g.ev) out.push(Object.assign({}, e, { at: at + e.at })); at += g.len; } continue; }
+if (t[0] === "]") return { ev: out, len: at };
+const m = /^([^:]+)(?::(\d+(?:\.\d+)?))?$/.exec(t), len = m && m[2] ? +m[2] : 1, v = m ? m[1] : "";
+if (v === ".") { at += len; continue; } const ls = v.split("+").map(Number); if (!m || ls.some(x => !Number.isInteger(x) || x < 0 || x > 7)) { err(`"${t}" is not a lane step (0..7, ., a+b, :N, [ ]*N)`); at += len; continue; }
+out.push({ at, len, lanes: ls }); at += len; }
+return { ev: out, len: at }; };
+return seq(); }
+function chart(src, name, o = {}) {
+const P = parse(typeof src === "string" && api.tunes[src] != null ? api.tunes[src] : src), C = P.chart[name || Object.keys(P.chart)[0]]; if (!C) throw new Error(`no chart "${name}"`);
+const spb = 60 / P.bpm, ss = spb / P.steps, notes = []; let len = 0;
+if (C.seq) { for (const e of C.seq.ev) for (const l of e.lanes) if (l < C.lanes) notes.push({ at: e.at, lane: l, len: e.len }); len = C.seq.len; }
+else { const T = P.track[C.from], ms = [...new Set(T.ev.flatMap(e => e.m || []))].sort((a, b) => a - b), laneOf = m => C.lanes - 1 - Math.min(C.lanes - 1, Math.floor(ms.indexOf(m) * C.lanes / ms.length));
+for (const e of T.ev) { const used = new Set(); for (const m of e.m || []) { if (used.size >= C.lanes) break; let l = laneOf(m); while (used.has(l)) l = (l + 1) % C.lanes; used.add(l); notes.push({ at: e.at, lane: l, len: e.len }); } } len = T.len; }
+const loops = o.loops || 1, all = []; for (let k = 0; k < loops; k++) for (const n of notes) all.push({ at: n.at + k * len, lane: n.lane, len: n.len });
+all.sort((a, b) => a.at - b.at || a.lane - b.lane);
+const off = o.offset || 0, W = { perfect: o.perfect || 0.05, good: o.good || 0.11 };
+const K = { P, C, name: C.name, bpm: P.bpm, spb, ss, W, lanes: C.lanes, len: len * ss * loops, notes: all.map((n, id) => ({ id, t: off + n.at * ss, beat: n.at / P.steps, lane: n.lane, len: n.len * ss, st: 0 })),
+stats: { perfect: 0, good: 0, miss: 0, stray: 0, combo: 0, best: 0, chain: 0, hchain: 0 }, log: [], fns: [], fx: o.fx || null, game: o.do || null };
+const R = C.ramp.slice().sort((a, b) => a[0] - b[0]);
+K.lead = t => { if (!R.length) return 2; const b = (t - off) / spb; if (b <= R[0][0]) return R[0][1]; for (let i = 1; i < R.length; i++) if (b <= R[i][0]) { const u = (b - R[i - 1][0]) / (R[i][0] - R[i - 1][0]); return R[i - 1][1] + (R[i][1] - R[i - 1][1]) * u; } return R[R.length - 1][1]; };
+K.on = fn => { K.fns.push(fn); return K; };
+const emit = (ev, d) => { const e = Object.assign({ ev, t: d && d.t }, d); K.log.push(e); if (K.log.length > 500) K.log.shift(); for (const f of K.fns) f(e);
+const H = root.ST; for (const [k, v] of P.on[ev] || []) { try {
+if (k === "sfx" && H && H.sfx) H.sfx(v); else if (k === "sting" && H && H.music && H.music.sting) H.music.sting(v); else if (k === "mood" && H && H.music && H.music.mood) H.music.mood(v);
+else if (k === "fx" && K.fx) K.fx(v, e); else if (k === "do" && K.game) K.game(v, e); } catch (x) { /* a missing tool never breaks the judge */ } } };
+const counted = (ok, perfect, t) => { const S = K.stats;
+if (!ok) { if (S.combo >= 5) emit("break", { t, combo: S.combo }); S.combo = 0; S.chain = 0; S.hchain = 0; return; }
+S.combo++; S.best = Math.max(S.best, S.combo); S.hchain++; S.chain = perfect ? S.chain + 1 : 0;
+for (const E of C.combo) if (E.at.includes(S.combo) || (E.every && S.combo % E.every === 0)) emit(E.ev, { t, combo: S.combo });
+for (const H of C.chain) { const n = H.need === "hit" ? S.hchain : S.chain; if (n > 0 && n % H.n === 0) emit(H.ev, { t, run: n }); } };
+K.press = (lane, t) => { let best = null; for (const n of K.notes) { if (n.t > t + W.good) break; if (n.st || n.lane !== lane) continue; const e = t - n.t; if (Math.abs(e) <= W.good && (!best || Math.abs(e) < Math.abs(best.t - t))) best = n; }
+if (!best) { K.stats.stray++; emit("stray", { t, lane }); return null; }
+const err = +(t - best.t).toFixed(4), grade = Math.abs(err) <= W.perfect ? "perfect" : "good"; best.st = grade === "perfect" ? 2 : 1; best.err = err; K.stats[grade]++;
+emit("hit", { t, lane, grade, err, note: best.id }); emit(grade, { t, lane, err, note: best.id }); counted(true, grade === "perfect", t); return { grade, err, note: best }; };
+K.sweep = t => { const out = []; for (const n of K.notes) { if (n.t > t - W.good) break; if (!n.st) { n.st = -1; K.stats.miss++; out.push(n); emit("miss", { t: n.t + W.good, lane: n.lane, note: n.id }); counted(false, false, t); } } return out; };
+K.ahead = (t, lead) => { const L = lead || K.lead(t), out = []; for (const n of K.notes) { if (n.t > t + L) break; if (n.t >= t - W.good - 0.2) out.push(n); } return out; };
+K.reset = () => { for (const n of K.notes) { n.st = 0; delete n.err; } Object.assign(K.stats, { perfect: 0, good: 0, miss: 0, stray: 0, combo: 0, best: 0, chain: 0, hchain: 0 }); K.log = []; return K; };
+K.hash = () => { let h = 2166136261; for (const n of K.notes) h = Math.imul(h ^ (n.st + 3) ^ Math.round((n.err || 0) * 1e4) << 3, 16777619); for (const v of Object.values(K.stats)) h = Math.imul(h ^ v, 16777619); return (h >>> 0).toString(16).padStart(8, "0"); };
+return K; }
+function parse(text) {
+if (text && typeof text === "object") return text;
+const P = { bpm: 120, seed: 1, steps: 4, bars: 0, vol: 0.8, fade: 1, quant: 4, inst: {}, track: {}, order: [], mood: {}, moods: [], sting: {}, score: {}, chart: {}, on: {}, errors: [], bytes: (text || "").length };
+const CH = n => P.chart[n] || (P.chart[n] = { name: n, lanes: 4, from: null, seq: null, ramp: [], chain: [], combo: [], li: 0 });   // v1.23 charts
+for (const { w, li, raw } of lines(text)) {
+const err = m => P.errors.push(`line ${li}: ${m} (${raw})`), num = (i, lo, hi) => { const v = +w[i]; if (!isNum(w[i]) || v < lo || v > hi) { err(`"${w[i - 1]}" needs a number ${lo}..${hi} at word ${i + 1}`); return lo; } return v; };
+switch (w[0]) {
+case "bpm": P.bpm = num(1, 20, 400); break;
+case "seed": P.seed = num(1, -1e9, 1e9) | 0; break;
+case "steps": P.steps = Math.round(num(1, 1, 16)); break;
+case "bars": P.bars = num(1, 0.25, 64); break;
+case "vol": P.vol = num(1, 0, 2); break;
+case "fade": P.fade = num(1, 0, 32); break;
+case "quant": P.quant = num(1, 0.25, 64); break;
+case "inst": { const I = { name: w[1], src: w[2], p1: null, p2: null, a: 0.005, d: 0.3, s: 0.7, r: 0.1, v: 0.5, oct: 0, det: 0, lp: 0, q: 0.7, fenv: 0, vib: null, pan: 0, wet: 0, echo: null, drive: 0, hum: 0 };
+if (!w[1] || !SRC.includes(w[2])) { err(`"inst NAME SRC": SRC is ${SRC.join(" | ")}`); break; }
+if (DRUM[I.src]) { I.s = 0; I.d = { kick: 0.4, snare: 0.18, hat: 0.05 }[I.src]; I.a = 0; I.r = 0; }
+if (I.src === "pluck") { I.s = 0; I.d = 1; I.a = 0; }
+let i = 3; if (["pulse", "fm", "pluck"].includes(I.src)) { if (isNum(w[i])) I.p1 = +w[i++]; if (I.src === "fm" && isNum(w[i])) I.p2 = +w[i++]; }
+for (; i < w.length; i++) { const k = w[i];
+switch (k) {
+case "a": case "d": case "r": case "hum": I[k] = num(++i, 0, 30); break;
+case "s": I.s = num(++i, 0, 1); break;
+case "v": I.v = num(++i, 0, 4); break;
+case "oct": I.oct = Math.round(num(++i, -4, 4)); break;
+case "det": I.det = num(++i, 0, 100); break;
+case "lp": I.lp = num(++i, 20, 20000); break;
+case "q": I.q = num(++i, 0.5, 20); break;
+case "fenv": I.fenv = num(++i, 0, 50); break;
+case "vib": I.vib = [num(++i, 0, 40), num(++i, 0, 12)]; break;
+case "pan": I.pan = num(++i, -1, 1); break;
+case "wet": I.wet = num(++i, 0, 1); break;
+case "echo": I.echo = [num(++i, 0.0625, 16), num(++i, 0, 0.95), num(++i, 0, 1)]; break;
+case "drive": I.drive = num(++i, 0, 20); break;
+default: err(`unknown inst option "${k}"`);
+} }
+P.inst[I.name] = I; break; }
+case "track": case "sting": { const name = w[1], inst = w[2]; if (!name || !inst) { err(`"${w[0]} NAME INST notes..."`); break; }
+let words = w.slice(3), duck = null; const di = words.indexOf("duck"); if (w[0] === "sting" && di >= 0) { duck = +words[di + 1]; if (!(duck >= 0 && duck <= 1)) err('"duck" needs 0..1'); words = words.slice(0, di); }
+const T = Object.assign({ name, inst, duck }, notes(words, err)); if (!T.len) err(`${w[0]} ${name}: no notes`);
+if (w[0] === "track") { if (!P.track[name]) P.order.push(name); P.track[name] = T; } else P.sting[name] = T; break; }
+case "mood": { const M = { name: w[1], lv: {}, lp: 0, sting: null }; if (!w[1]) { err('"mood" needs a name'); break; }
+for (let i = 2; i < w.length; i++) { const k = w[i];
+if (k === "lp") { M.lp = num(++i, 20, 20000); continue; }
+if (k === "sting") { M.sting = w[++i]; continue; }
+const [t, l] = k.split(":"); M.lv[t] = l == null ? 1 : +l; if (l != null && !(+l >= 0 && +l <= 2)) err(`level "${k}" needs 0..2`); }
+if (!P.mood[M.name]) P.moods.push(M.name); P.mood[M.name] = M; break; }
+case "score": { const S = []; if (!w[1]) { err('"score" needs a cine name'); break; }
+for (let i = 2; i < w.length; i += 2) { if (!isNum(w[i]) || !w[i + 1]) { err('"score CINE BEAT MOOD|!STING ..." (pairs)'); break; } S.push(w[i + 1][0] === "!" ? { b: +w[i], sting: w[i + 1].slice(1) } : { b: +w[i], mood: w[i + 1] }); }
+P.score[w[1]] = S; break; }
+case "chart": { if (!w[1]) { err('"chart NAME [lanes n] [from TRACK]"'); break; } const C = CH(w[1]); C.li = li;
+for (let i = 2; i < w.length; i++) { if (w[i] === "lanes") C.lanes = Math.round(num(++i, 1, 8)); else if (w[i] === "from") C.from = w[++i]; else err(`unknown chart option "${w[i]}"`); } break; }
+case "lanes": { if (!w[1]) { err('"lanes CHART steps.."'); break; } const C = CH(w[1]), sq = laneSeq(w.slice(2), err); C.seq = C.seq ? { ev: C.seq.ev.concat(sq.ev.map(e => Object.assign({}, e, { at: e.at + C.seq.len }))), len: C.seq.len + sq.len } : sq; break; }
+case "ramp": { const C = CH(w[1] || ""); for (let i = 2; i + 1 < w.length; i += 2) C.ramp.push([num(i, 0, 1e5), num(i + 1, 0.2, 10)]); if (C.ramp.length < 1) err('"ramp CHART BEAT LEAD_S [BEAT LEAD_S].."'); break; }
+case "chain": { const C = CH(w[1] || ""); if (!w[2] || !isNum(w[3])) { err('"chain CHART EVENT N [perfect|hit]"'); break; } C.chain.push({ ev: w[2], n: +w[3], need: w[4] === "hit" ? "hit" : "perfect" }); break; }
+case "combo": { const C = CH(w[1] || ""); if (!w[2]) { err('"combo CHART EVENT N [N..] [every N]"'); break; } const E = { ev: w[2], at: [], every: 0 };
+for (let i = 3; i < w.length; i++) { if (w[i] === "every") E.every = num(++i, 1, 1e4); else E.at.push(num(i, 1, 1e5)); } C.combo.push(E); break; }
+case "on": { if (!w[1]) { err('"on EVENT [sfx S] [sting S] [mood M] [fx F] [do NAME]"'); break; } const O = P.on[w[1]] || (P.on[w[1]] = []);
+for (let i = 2; i + 1 < w.length; i += 2) { if (!["sfx", "sting", "mood", "fx", "do"].includes(w[i])) { err(`on: "${w[i]}" is not sfx | sting | mood | fx | do`); break; } O.push([w[i], w[i + 1]]); } break; }
+default: err(`unknown statement "${w[0]}"`);
+}
+}
+for (const C of Object.values(P.chart)) { if (!C.seq && !C.from) P.errors.push(`chart ${C.name}: needs "lanes ${C.name} ..." or "chart ${C.name} from TRACK"`); if (C.from && !P.track[C.from]) P.errors.push(`chart ${C.name}: no track "${C.from}"`); }
+for (const T of Object.values(P.track).concat(Object.values(P.sting))) if (!P.inst[T.inst]) P.errors.push(`${T.name}: no inst "${T.inst}"`);
+for (const M of Object.values(P.mood)) { for (const t of Object.keys(M.lv)) if (!P.track[t]) P.errors.push(`mood ${M.name}: no track "${t}"`); if (M.sting && !P.sting[M.sting]) P.errors.push(`mood ${M.name}: no sting "${M.sting}"`); }
+for (const [c, S] of Object.entries(P.score)) for (const e of S) if (e.mood ? !P.mood[e.mood] : !P.sting[e.sting]) P.errors.push(`score ${c}: no ${e.mood ? "mood" : "sting"} "${e.mood || e.sting}"`);
+if (!P.order.length) P.errors.push("no track");
+const bar = 4 * P.steps, longest = Math.max(0, ...P.order.map(t => P.track[t].len));
+P.L = P.bars ? Math.round(P.bars * bar) : Math.max(bar, Math.ceil(longest / bar) * bar);
+if (!P.moods.length) { P.mood.all = { name: "all", lv: Object.fromEntries(P.order.map(t => [t, 1])), lp: 0, sting: null }; P.moods.push("all"); }
+return P;
+}
+const blep = (t, dt) => t < dt ? (t /= dt, t + t - t * t - 1) : t > 1 - dt ? (t = (t - 1) / dt, t * t + t + t + 1) : 0;
+const SIN = new Float64Array(4097); for (let i = 0; i <= 4096; i++) SIN[i] = Math.sin(TAU * i / 4096);
+const sn = p => { p -= Math.floor(p); const x = p * 4096, i = x | 0; return SIN[i] + (SIN[i + 1] - SIN[i]) * (x - i); };   // sin(2*pi*p) from a table (pure JS: the same on every machine)
+function fill(S, i0, i1) {
+const { I, R, out, fs, ph, pm, K, norm, w, ratio, index, ks, damp, qd, kd, na, ng, nr, drum, perc, src, kk, vel, fixF } = S;
+let { lo, bd, h1, h2, kp, dec, E, Eg, ka } = S, stop = 0;
+for (let i = i0; i < i1; i++) {
+if (drum) E = 1; else if (i < na) E = i / na; else if (i < ng) { E = perc ? dec : I.s + (1 - I.s) * dec; dec *= kd; Eg = E; } else { if (i === ng && ng <= na) Eg = ng / Math.max(1, na); E = nr > 0 ? Eg * Math.max(0, 1 - (i - ng) / nr) : 0; }
+let x = 0;
+if (src === "kick") { const t = i / R; kp += 50 * (1 + 3 * Math.exp(-t / 0.03)) / R; x = sn(kp) * ka + (t < 0.03 ? (S.rnd() * 2 - 1) * 0.3 * Math.exp(-t / 0.004) : 0); ka *= kk; }
+else if (src === "snare") { const nz = S.rnd() * 2 - 1; x = (nz - h1) * 0.7 * ka + sn(190 * i / R) * 0.5 * Math.exp(-i / R / 0.05); h1 = nz; ka *= kk; }
+else if (src === "hat") { const nz = S.rnd() * 2 - 1, d1 = nz - h1; x = (d1 - h2) * 0.35 * ka; h1 = nz; h2 = d1; ka *= kk; }
+else if (src === "noise") x = S.rnd() * 2 - 1;
+else if (src === "pluck") { for (let k = 0; k < K; k++) { const q = ks[k], b = q.b, j = q.i, j2 = j + 1 === q.L ? 0 : j + 1, y = b[j]; b[j] = damp * (y + b[j2]); q.i = j2; x += y; } x *= norm; }
+else { const vf = I.vib ? 2 ** (I.vib[1] * sn(I.vib[0] * i / R) / 12) : 1;
+for (let k = 0; k < K; k++) { const dt = fs[k] * vf / R; let p = ph[k] + dt; if (p >= 1) p -= 1; ph[k] = p;
+if (src === "sine") x += sn(p);
+else if (src === "tri") x += 4 * Math.abs(p - 0.5) - 1;
+else if (src === "saw") x += 2 * p - 1 - blep(p, dt);
+else if (src === "square") { const p2 = p + 0.5; x += (p < 0.5 ? 1 : -1) + blep(p, dt) - blep(p2 >= 1 ? p2 - 1 : p2, dt); }
+else if (src === "pulse") { const p2 = p + 1 - w; x += (p < w ? 1 : -1) + blep(p, dt) - blep(p2 >= 1 ? p2 - 1 : p2, dt); }
+else { let q = pm[k] + dt * ratio; if (q >= 1) q -= Math.floor(q); pm[k] = q; x += sn(p + index * (0.3 + 0.7 * E) * sn(q) / TAU); } }
+x *= norm; }
+if (I.lp) { const f = fixF || 2 * sn(Math.min(R / 6, I.lp * (1 + I.fenv * (drum ? ka : E))) / R / 2); lo += f * bd; const hi = x - lo - qd * bd; bd += f * hi; x = lo; }
+if (I.drive) x = Math.tanh(I.drive * x) / Math.tanh(I.drive);
+out[i] = x * E * vel;
+if (perc && i > na && E < 1e-4 && (!drum || ka < 1e-4)) { stop = i + 1; break; }   // rung out: stop early
+}
+Object.assign(S, { lo, bd, h1, h2, kp, dec, E, Eg, ka }); return stop;
+}
+function* voice(I, e, dur, R, rnd) {
+const drum = !!DRUM[I.src], perc = I.s === 0, gate = perc ? I.a + I.d : dur, n = Math.max(1, Math.ceil((gate + I.r + 0.002) * R)), out = new Float32Array(n);
+const base = (e.m || [60]).map(m => hz(m + 12 * I.oct)), dets = I.det ? [0, -I.det, I.det] : [0], fs = [];
+for (const f of base) for (const c of dets) fs.push(f * 2 ** (c / 1200));
+const K = fs.length, src = I.src, S = { I, R, out, fs, K, ph: new Float64Array(K), pm: new Float64Array(K), norm: 1 / Math.sqrt(K), w: I.p1 == null ? 0.25 : I.p1, ratio: I.p1 == null ? 2 : I.p1, index: I.p2 == null ? 2 : I.p2,
+ks: src === "pluck" ? fs.map(f => { const L = Math.max(2, Math.round(R / f)), b = new Float32Array(L); for (let i = 0; i < L; i++) b[i] = rnd() * 2 - 1; return { b, i: 0, L }; }) : null,
+damp: src === "pluck" ? (I.p1 == null ? 0.996 : I.p1) * 0.5 : 0, qd: 1 / I.q, kd: Math.exp(-5 / (Math.max(1e-4, I.d) * R)), na: Math.round(I.a * R), ng: Math.round(gate * R), nr: I.r * R, drum, perc, src,
+kk: Math.exp(-3 / (Math.max(1e-4, I.d) * R)), vel: e.vel * I.v, fixF: I.lp && !I.fenv ? 2 * sn(Math.min(R / 6, I.lp) / R / 2) : 0, rnd, lo: 0, bd: 0, h1: 0, h2: 0, kp: 0, dec: 1, E: 0, Eg: 0, ka: 1 };
+for (let i0 = 0; i0 < n; i0 += 4096) { const stop = fill(S, i0, Math.min(n, i0 + 4096)); if (stop) return out.subarray(0, stop); if (i0 + 4096 < n) yield; }
+return out;
+}
+function* synth(src, R) {
+const P = parse(src), stepS = 60 / P.bpm / P.steps, N = Math.max(1, Math.round(P.L * stepS * R)), stems = {}, stings = {}, peaks = {};
+for (const name of P.order) { const T = P.track[name], I = P.inst[T.inst], D = new Float32Array(N), rnd = rng((P.seed ^ hashS(name)) | 0);
+if (I) for (let at0 = 0; at0 < P.L; at0 += T.len) for (const e of T.ev) { const at = at0 + e.at; if (at >= P.L) break;
+const j = Math.round((at * stepS + (I.hum ? rnd() * I.hum : 0)) * R), v = yield* voice(I, e, e.len * stepS, R, rnd);
+for (let k = 0; k < v.length; k++) D[(j + k) % N] += v[k]; }
+if (I && I.echo) { const d = Math.max(1, Math.min(N - 1, Math.round(I.echo[0] * P.steps * stepS * R))), fb = I.echo[1], y = new Float32Array(N);   // circular feedback delay: the loop stays seamless
+for (let lap = 0; lap < 4; lap++) { for (let i = 0; i < N; i++) y[i] = D[i] + fb * y[(i - d + N) % N]; yield; }
+for (let i = 0; i < N; i++) D[i] += I.echo[2] * (y[i] - D[i]); }
+stems[name] = D; yield; }
+for (const [name, T] of Object.entries(P.sting)) { const I = P.inst[T.inst], rnd = rng((P.seed ^ hashS("!" + name)) | 0); if (!I) continue;
+const parts = []; let n = Math.round(T.len * stepS * R); for (const e of T.ev) { const j = Math.round(e.at * stepS * R), v = yield* voice(I, e, e.len * stepS, R, rnd); parts.push([j, v]); n = Math.max(n, j + v.length); }
+const D = new Float32Array(n); for (const [j, v] of parts) for (let k = 0; k < v.length; k++) D[j + k] += v[k]; stings[name] = D; }
+const all = new Float32Array(N); for (const k of P.order) { const D = stems[k]; for (let i = 0; i < N; i++) all[i] += D[i]; yield; }   // all tracks at once: the loudest any mood can be
+let pk = 0; for (let i = 0; i < N; i++) { const a = Math.abs(all[i]); if (a > pk) pk = a; }
+const g = Math.min(1, 0.89 / (pk || 1));
+for (const D of Object.values(stems).concat(Object.values(stings))) { for (let i = 0; i < D.length; i++) D[i] *= g; yield; }
+for (const k of P.order) { let p = 0; const D = stems[k]; for (let i = 0; i < N; i++) { const a = Math.abs(D[i]); if (a > p) p = a; } peaks[k] = p; }
+return { stems, stings, N, rate: R, g, peaks, P };
+}
+const run = gen => { let r; do r = gen.next(); while (!r.done); return r.value; };
+const sum = (ac, dest, det) => { if (!det) return { add: n => n.connect(dest) }; let h = null;
+return { add: n => { if (!h) { h = n; n.connect(dest); return; } const g = ac.createGain(); h.disconnect(dest); h.connect(g); n.connect(g); g.connect(dest); h = g; } }; };
+function player(ac, dest, X, o = {}) {
+const P = X.P, spb = 60 / P.bpm, nyq = ac.sampleRate / 2 - 1, g = v => { const n = ac.createGain(); n.gain.value = v; return n; };
+const out = g(P.vol), filt = ac.createBiquadFilter(), bus = g(1), outIn = sum(ac, out, o.det), busIn = sum(ac, bus, o.det);
+out.connect(dest); filt.type = "lowpass"; filt.Q.value = 0.5; filt.frequency.value = nyq; bus.connect(filt); outIn.add(filt);
+const T = { t0: 0, mood: null, log: [], gains: {}, srcs: [], bpm: P.bpm, spb, out, P };
+const buf = D => { const b = ac.createBuffer(1, D.length, X.rate); b.getChannelData(0).set(D); return b; };
+T.beat = t => (t - T.t0) / spb;
+T.next = (t, q) => T.t0 + Math.ceil(T.beat(t) / q - 1e-6) * q * spb;
+const apply = (name, at, tc) => { const M = P.mood[name];
+for (const k of P.order) { const gn = T.gains[k].gain, lv = M.lv[k] || 0; gn.cancelScheduledValues(at); if (tc) gn.setTargetAtTime(lv, at, tc); else gn.setValueAtTime(lv, at); }
+const f = Math.min(nyq, M.lp || nyq); filt.frequency.cancelScheduledValues(at); if (tc) filt.frequency.setTargetAtTime(f, at, tc); else filt.frequency.setValueAtTime(f, at); };
+T.start = (t0, mood) => { T.t0 = t0; mood = P.mood[mood] ? mood : P.moods[0];
+for (const k of P.order) { const s = ac.createBufferSource(), gn = g(0); s.buffer = buf(X.stems[k]); s.loop = true; s.connect(gn); let tail = gn;
+const I = P.inst[P.track[k].inst]; if (I.pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = I.pan; gn.connect(p); tail = p; }
+busIn.add(tail); if (I.wet && o.send) { const w = g(I.wet); tail.connect(w); o.send.add(w); }
+s.start(t0); T.srcs.push(s); T.gains[k] = gn; }
+apply(mood, t0, 0); T.mood = mood; T.log.push({ T: t0, mood, asked: t0 }); if (o.clock) o.clock.set(P.bpm, t0); return T; };
+T.setMood = (name, t, exact) => { if (!P.mood[name] || !T.srcs.length) return null;
+const at = exact ? t : T.next(t, P.quant); apply(name, at, Math.max(0.01, P.fade * spb / 3)); T.mood = name; T.log.push({ T: at, mood: name, asked: t });
+if (P.mood[name].sting) T.sting(P.mood[name].sting, at, true); return at; };
+T.sting = (name, t, exact) => { const D = X.stings[name]; if (!D || !T.srcs.length) return null; const at = exact ? t : T.next(t, 1), s = ac.createBufferSource();
+s.buffer = buf(D); outIn.add(s); s.start(at); T.srcs.push(s); const k = P.sting[name].duck;
+if (k != null) { const b = bus.gain, len = D.length / X.rate; b.cancelScheduledValues(at); b.setTargetAtTime(k, at, 0.02); b.setTargetAtTime(1, at + len * 0.6, 0.3); }
+T.log.push({ T: at, sting: name, asked: t }); return at; };
+T.stop = t => { out.gain.cancelScheduledValues(t); out.gain.setTargetAtTime(0, t, 0.3); for (const s of T.srcs) try { s.stop(t + 2); } catch (e) { /* stopped */ } T.srcs = []; };
+return T;
+}
+function plan(src, cine, bpm) { const P = parse(typeof src === "string" && api.tunes[src] != null ? api.tunes[src] : src), spb = 60 / (bpm || P.bpm); return (P.score[cine] || []).map(e => Object.assign({ T: e.b * spb, exact: true }, e.mood ? { mood: e.mood } : { sting: e.sting })); }
+async function render(src, list = [], o = {}) {
+const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext; if (!OAC) throw new Error("no OfflineAudioContext (audio unavailable)");
+const P = parse(typeof src === "string" && api.tunes[src] != null ? api.tunes[src] : src), rate = o.rate || 48000, s0 = performance.now(), X = run(synth(P, rate)), synthMs = performance.now() - s0;
+const secs = o.seconds || X.N / rate, ac = new OAC(2, Math.ceil(secs * rate), rate), SS = root.ST && root.ST.SS;
+let B = null, dest = ac.destination, send = null, clock = { set() {} };
+if (o.sounds != null && SS) { B = SS.create(o.sounds, { ac, out: ac.destination }); const m = B.mix(); dest = ac.createGain(); m.into.music.add(dest); send = m.send ? m.toSend : null; clock = B.clock; }
+const T = player(ac, dest, X, { det: true, send, clock }), L0 = list.slice().sort((a, b) => a.T - b.T), first = L0.find(e => e.mood && e.T <= (o.t0 || 0) + 1e-9);
+T.start(o.t0 || 0, first ? first.mood : P.moods[0]);
+for (const e of L0) { if (e === first) continue; if (e.mood) T.setMood(e.mood, e.T, e.exact); else if (e.sting) T.sting(e.sting, e.T, e.exact); }
+if (B) { for (const e of (o.sfx || []).slice().sort((a, b) => a.T - b.T)) { B.pump(e.T); if (e.stop) B.stop(e.name, e.T); else B.play(e.name, { when: e.T, at: e.at, cam: e.cam, pan: e.pan, vol: e.vol }); } B.pump(secs); }
+const t1 = performance.now(), buf = await ac.startRendering(), renderMs = performance.now() - t1, L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+let h1 = 2166136261, h2 = 5381, pk = 0, q = 0;
+for (const ch of [L, Rr]) { const u = new Uint32Array(ch.buffer, ch.byteOffset, ch.length); for (let i = 0; i < u.length; i++) { h1 = Math.imul(h1 ^ u[i], 16777619); h2 = (Math.imul(h2, 33) + u[i]) | 0; const a = Math.abs(ch[i]); if (a > pk) pk = a; q += ch[i] * ch[i]; } }
+return { L, R: Rr, rate, seconds: secs, hash: (h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0"), peak: pk, rms: Math.sqrt(q / (2 * L.length)),
+log: T.log.map(e => Object.assign({}, e)), bpm: P.bpm, loop: X.N / rate, synthMs, renderMs, info: B ? B.info : null, errors: P.errors, peaks: X.peaks };
+}
+function fromV1(s) {
+const nm = m => NAMES[m % 12] + (Math.floor(m / 12) - 1), I = { square: "square", pulse: "pulse .25", triangle: "tri", bell: "fm 3.5 3 s 0 d 1.6", soft: "sine a .03 r .2" };
+const out = [`bpm ${s.t}; steps 2; bars ${s.len / 8}`], names = [];
+s.tr.forEach((tr, k) => { const ev = []; for (let i = 0; i < tr.n.length;) { const c = tr.n[i++]; let d = 1; if (tr.n[i] >= "0" && tr.n[i] <= "9") d = +tr.n[i++]; ev.push([c === "." ? 0 : c.charCodeAt(0) - 30, d]); }
+const tok = f => ev.map(([m, d]) => (m && f(m) ? (tr.i === "noise" ? "x" : nm(m)) : ".") + (d > 1 ? ":" + d : "")).join(" ");
+if (tr.i === "noise") { out.push(`inst i${k}h hat v ${tr.v * 2}; inst i${k}k snare v ${tr.v * 2}`, `track t${k}h i${k}h ${tok(m => m >= 84)}`, `track t${k}k i${k}k ${tok(m => m < 84)}`); names.push(`t${k}h`, `t${k}k`); }
+else { out.push(`inst i${k} ${I[tr.i] || "square"} v ${tr.v * 2}`, `track t${k} i${k} ${tok(() => true)}`); names.push(`t${k}`); } });
+out.push("mood all " + names.join(" ")); return out.join("\n");
+}
+function wav(L, R, rate) { const n = L.length, b = new ArrayBuffer(44 + n * 4), v = new DataView(b), s = (o, t) => { for (let i = 0; i < 4; i++) v.setUint8(o + i, t.charCodeAt(i)); }, c = x => Math.round(Math.max(-1, Math.min(1, x)) * 32767);
+s(0, "RIFF"); v.setUint32(4, 36 + n * 4, true); s(8, "WAVE"); s(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+v.setUint32(24, rate, true); v.setUint32(28, rate * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); s(36, "data"); v.setUint32(40, n * 4, true);
+for (let i = 0, o = 44; i < n; i++, o += 4) { v.setInt16(o, c(L[i]), true); v.setInt16(o + 2, c(R[i]), true); } return new Uint8Array(b); }
+const TUNES = {"workshop":"bpm 118; seed 21; bars 4\ninst bell pulse .2 lp 4000 a .01 d .4 s 0 r .2 v .28 wet .25\ninst bass tri lp 400 d .15 s .5 r .08 v .4\ninst lead pulse .15 lp 2800 a .02 d .3 s .4 r .15 v .22 wet .2\ninst kick kick v .7\ninst hat hat v .22 hum .004\ntrack bass bass [c2:2 c2 g1:2 g1]*2 [f1:2 f1 c2:2 c2]*2\ntrack bell bell [c5 e5 g5 e5]*2 [a4 c5 e5 c5]*2 [f5 a4 c5 a4]*2 [g4 b4 d5 b4]*2\ntrack lead lead c5:4 e5:4 g5:6 e5:2 d5:4 b4:4 c5:8 e5:4 g5:4 a5:4 g5:4 e5:8 d5:4 g4:4\ntrack kick kick x . . . x . . . x . . . x . x .\ntrack hat hat [x o]*8\nmood spring bass:.8 bell lead:.6 hat:.5 kick:.4 lp 2400\nmood crunch bass bell lead hat kick lp 3600\nmood eve bass:1 bell:1.1 lead:1 kick hat lp 4000\nmood raid bass:.9 lead:.5 bell:.3 kick:.8 lp 1200\nsting chime bell c6+e6 duck .4"};
+const api = { parse, synth, run, player, plan, render, fromV1, wav, notes, chart, laneSeq, tunes: TUNES || {}, forCine: c => Object.keys(api.tunes).sort().find(k => parse(api.tunes[k]).score[c]) || null };
+if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
+const host = root.ST || (root.ST = {}); host.TS = api;
+if (!host.sound) return;
+const specs = {}; for (const k of Object.keys(api.tunes)) specs[k] = parse(api.tunes[k]);
+const FILES = {};   // v1.45: audio-file songs (key -> { src, vol, el }) that take turns with the tunes
+const M = host.music = { songs: Object.fromEntries(Object.keys(specs).sort().map(k => [k, { name: k }])), T: {}, cur: null, p: null, job: null, Q: [], swaps: 0, bus: null, force: null, moodWant: null, cueing: null,
+clock: { bpm: 120, t0: 0, set(b, t) { this.bpm = b; this.t0 = t; } }, slice: 0 };
+const ac = () => host.sound.ac, SSb = () => host.SS && host.SS.bank;
+M.want = () => { if (M.force && M.songs[M.force]) return M.force; const sc = host.scene, k = host.G && host.G.song ? host.G.song(sc) : sc === "title" || sc === "over" ? (specs[sc] || !FILES.music ? sc : "music") : "play";
+return M.songs[k] ? k : M.cur || Object.keys(M.songs)[0]; };
+function pump() {                                 // ~6 ms slices every 16 ms after the first tap: no frame stalls (the wanted tune first)
+const t = performance.now();
+try { while (performance.now() - t < 6) {
+if (!M.job) { const w = M.want(); if (!M.T[w]) M.Q = [w, ...M.Q.filter(k => k !== w)];
+const k = M.Q.shift(); if (!k) break; if (M.T[k] || !specs[k]) continue; M.job = { k, g: synth(specs[k], Math.min(48000, ac().sampleRate)), t: performance.now() }; M.T[k] = "wait"; }
+const r = M.job.g.next(); if (r.done) { M.T[M.job.k] = { X: r.value, ms: Math.round(performance.now() - M.job.t) }; M.job = null; }
+} } catch (e) { if (M.job) M.T[M.job.k] = "error"; M.job = null; }
+M.slice = Math.max(M.slice, performance.now() - t);
+if (M.job || M.Q.length) setTimeout(pump, 16);
+}
+const start = (k, mood, at, cut) => { M.t0 = null; const A = ac(), X = M.T[k].X, B = SSb(), m = B && B.mix ? B.mix() : null, old = M.p;
+M.p = player(A, M.bus, X, { send: m && m.send ? m.toSend : null, clock: B ? B.clock : M.clock }); M.p.start(at, mood);
+if (old || (FILES[M.cur] && !cut)) { if (old) old.stop(at); if (!cut) { const g = M.p.out.gain; g.setValueAtTime(0, at); g.setTargetAtTime(X.P.vol, at, 0.15); } }   // a tune swap crossfades; a cue starts clean
+if (B) M.clock = B.clock; M.cur = k; M.swaps++; };
+M.file = (k, src, o = {}) => { if (!k || specs[k]) return false; FILES[k] = { src: String(src), vol: o.vol == null ? 0.35 : +o.vol, el: null, g: 0, quiet: 0 }; M.songs[k] = { name: o.name || k, file: String(src) }; return true; };
+M.files = () => Object.keys(FILES);
+if (host.cfg && host.cfg.music) M.file("music", "music.wav?v=" + host.cfg.v, { name: "music.wav" });   // game.json "music_file": true -> music.wav is the song "music" (title / over by default)
+const fileEl = F => { if (F.el) return F.el; const S = host.sound, own = S && S.music && S.music.src && S.music.src.split("?")[0].endsWith("/" + F.src.split("?")[0].replace(/^\.?\//, ""));
+F.el = own ? S.music : new Audio(F.src); F.el.loop = true; F.el.setAttribute("playsinline", ""); F.el.volume = 0; F.g = 0; return F.el; };
+let fileT = 0;
+function fileTick(w) { if (!Object.keys(FILES).length) return; const now = performance.now(), dt = fileT ? Math.min(0.1, (now - fileT) / 1000) : 0; fileT = now; const S = host.sound;
+for (const k in FILES) { const F = FILES[k], on = k === w, el = fileEl(F);
+if (on && F.g === 0 && F.quiet > 1) { try { el.currentTime = 0; } catch (e) { /* not loaded yet */ } }
+F.g = clamp01(F.g + (on ? 1 : -1) * dt / 0.4); F.quiet = F.g > 0 ? 0 : F.quiet + dt; el.volume = F.vol * F.g; el.muted = !!S.muted;
+if (on && el.paused && !document.hidden && host.scene !== "paused") el.play().catch(() => {}); } }
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+M.tick = () => {
+if (!M.bus || document.hidden) return; const A = ac(); if (!A) return;
+const w = M.want(); fileTick(w);
+if (FILES[w]) { if (M.cur !== w) { if (M.p) { const at = A.currentTime + 0.05, g = M.p.out.gain; g.setTargetAtTime(0, at, 0.12); M.p.stop(at + 0.6); M.p = null; } M.cur = w; M.swaps++; } }
+else if (w !== M.cur && M.T[w] && M.T[w].X) start(w, M.moodWant, A.currentTime + 0.05);
+const gm = host.G && host.G.mood ? host.G.mood(host.scene) : null; if (gm && gm !== M.moodWant) M.mood(gm);
+if (M.cueing && M.cueing.C.skipped && !M.cueing.sk && specs[M.cur]) { M.cueing.sk = true; const S = specs[M.cur].score[M.cueing.name] || [], last = S.filter(e => e.mood).pop(); if (last && M.p) M.p.setMood(last.mood, A.currentTime); }
+};
+M.mood = name => { M.moodWant = name; const A = ac(); if (M.p && A && specs[M.cur] && specs[M.cur].mood[name] && M.p.mood !== name) return M.p.setMood(name, A.currentTime); return null; };
+M.sting = name => { const A = ac(); return M.p && A ? M.p.sting(name, A.currentTime) : null; };
+M.play = name => { M.force = name || null; };
+M.start = (name, mood) => { const A = ac(); M.force = name; if (!M.bus || !A || !(M.T[name] && M.T[name].X)) return null; const t0 = A.currentTime + 0.05; start(name, mood, t0, true); M.t0 = t0; return t0; };
+M.chartTime = () => { const A = ac(); return M.t0 != null && A && A.state === "running" && M.p && M.p.srcs.length ? A.currentTime - M.t0 : null; };
+M.cue = (name, C) => { const k = api.forCine(name); if (!C) return null; C.__ts = null; if (!k) return null; M.force = k;
+const A = ac(); if (!M.bus || !A || !(M.T[k] && M.T[k].X)) return null;
+const t0 = A.currentTime + 0.05, L = plan(specs[k], name, C.bpm); start(k, (L.find(e => e.mood && e.T === 0) || {}).mood, t0, true);
+for (const e of L) if (e.T > 0) { if (e.mood) M.p.setMood(e.mood, t0 + e.T, true); else M.p.sting(e.sting, t0 + e.T, true); }
+M.cueing = { name, C, sk: false }; C.__ts = t0; return t0; };
+M.drive = (C, dt, held) => { const A = ac();
+if (C.__ts == null || !A || A.state !== "running") return C.step(dt, held);
+return C.step(Math.max(0, A.currentTime - C.__ts - C.t), held); };
+const ss0 = host.startSound;
+const silentWav = () => { const n = 4000, a = new Uint8Array(44 + n).fill(128), v = new DataView(a.buffer), w = (o, t) => { for (let i = 0; i < 4; i++) a[o + i] = t.charCodeAt(i); };
+w(0, "RIFF"); v.setUint32(4, 36 + n, 1); w(8, "WAVE"); w(12, "fmt "); v.setUint32(16, 16, 1); v.setUint16(20, 1, 1); v.setUint16(22, 1, 1);
+v.setUint32(24, 8000, 1); v.setUint32(28, 8000, 1); v.setUint16(32, 1, 1); v.setUint16(34, 8, 1); w(36, "data"); v.setUint32(40, n, 1);
+return URL.createObjectURL(new Blob([a], { type: "audio/wav" })); };
+host.startSound = () => {
+const first = !host.sound.on; ss0(); const S = host.sound;
+if (!first || !S.ac || !S.on) { if (S.ac && S.ac.state !== "running" && !document.hidden && host.scene !== "paused") S.ac.resume().catch(() => {}); return; }
+if (!S.music) { S.music = new Audio(silentWav()); S.music.loop = true; S.music.setAttribute("playsinline", ""); S.music.play().catch(() => {}); }   // iOS: a media session, so Web Audio plays with the ringer off
+M.bus = S.ac.createGain(); M.bus.gain.value = 0.9; M.bus.connect(S.master); M.Q = Object.keys(M.songs); if (M.Q.length) pump();
+};
+const go0 = host.go; host.go = sc => { go0(sc); const A = ac(); if (!A || !M.bus) return; if (sc === "paused") A.suspend().catch(() => {}); else if (!document.hidden) A.resume().catch(() => {}); };
+const upd0 = host.update; host.update = dt => { upd0(dt); try { M.tick(); } catch (e) { /* silent */ } };
+document.addEventListener("visibilitychange", () => { const A = ac(); if (!A) return; if (document.hidden) A.suspend().catch(() => {}); else if (host.scene !== "paused") A.resume().catch(() => {}); });
+M.info = () => { const A = ac(); if (!A || !M.bus) return null; const F = FILES[M.cur], playing = F ? !!(F.el && !F.el.paused && F.g > 0) : !!(M.p && M.p.srcs.length);
+if (F) return { paused: document.hidden || !playing, muted: host.sound.muted, time: F.el ? F.el.currentTime : 0, song: M.cur, file: F.src, gain: +F.g.toFixed(3), want: M.want(), ready: Object.keys(M.T).filter(k => M.T[k] && M.T[k].X).length, of: Object.keys(M.songs).length, swaps: M.swaps, mood: null, bpm: null, beat: null, log: 0, sliceMs: +M.slice.toFixed(2), tune: !!M.p };
+return { paused: document.hidden || A.state !== "running" || !playing || (host.sound.music && host.sound.music.paused), muted: host.sound.muted, time: playing ? Math.max(0, A.currentTime - M.p.t0) : 0,
+song: M.cur, want: M.want(), ready: Object.keys(M.T).filter(k => M.T[k] && M.T[k].X).length, of: Object.keys(M.songs).length, swaps: M.swaps,
+mood: M.p ? M.p.mood : null, bpm: M.p ? M.p.bpm : null, beat: playing ? +M.p.beat(A.currentTime).toFixed(2) : null, log: M.p ? M.p.log.length : 0, sliceMs: +M.slice.toFixed(2) }; };
+const gs0 = root.__gs;
+if (gs0) root.__gs = () => { const o = gs0(); o.sound = Object.assign({}, o.sound, { music: M.info() }); return o; };
+})(typeof window !== "undefined" ? window : globalThis);
+ST.juke = (() => {
+const J = { i: -1, kind: null, list: [], el: null };
+J.tracks = () => {
+if (ST.music && ST.music.songs) { J.kind = "code"; return Object.keys(ST.music.songs).map(k => ({ k, name: ST.music.songs[k].name || k })); }
+if (ST.G && Array.isArray(ST.G.jukebox)) { J.kind = "file"; return ST.G.jukebox.map((t, i) => ({ k: "f" + i, name: t.name || t.src, src: t.src })); }
+J.kind = null; return [];
+};
+J.cur = () => (J.i >= 0 && J.list[J.i]) || null;
+J.stopFile = () => { if (J.el) { J.el.pause(); J.el = null; } const m = ST.sound.music; if (m && ST.scene !== "paused" && !document.hidden && J.kind === "file") m.play().catch(() => {}); };
+J.next = () => {
+J.list = J.tracks(); if (J.list.length < 2) return;
+ST.startSound(); J.i = (J.i + 1) % J.list.length; const t = J.cur();
+if (J.kind === "file") {
+if (J.el) J.el.pause(); if (ST.sound.music) ST.sound.music.pause();
+J.el = new Audio(t.src + (t.src.includes("?") ? "&" : "?") + "v=" + ST.cfg.v); J.el.loop = true; J.el.volume = 0.35; J.el.muted = ST.sound.muted;
+J.el.setAttribute("playsinline", ""); J.el.play().catch(() => {});
+}
+ST.sfx("tap");
+};
+if (ST.music && ST.music.want) { const w0 = ST.music.want; ST.music.want = () => { const t = J.cur(); return ST.scene === "title" && t && J.kind === "code" && ST.music.songs[t.k] ? t.k : w0(); }; }
+const dt0 = ST.drawTitle;
+ST.drawTitle = () => {
+const T = ST.G && ST.G.title;
+if (T && !T.__juke) { T.__juke = true; J.list = J.tracks();
+if (J.list.length >= 2) { T.extra = [...(T.extra || []), { id: "juke", label: () => "JUKEBOX", on: () => J.i >= 0 }];
+const f0 = T.footer; T.footer = () => { const t = J.cur(); return t ? `NOW PLAYING ${String(t.name).toUpperCase()} (${J.i + 1}/${J.list.length})` : f0 ? f0() : ""; }; } }
+dt0();
+};
+const ss0 = ST.startSound; ST.startSound = () => { ss0(); if (J.el && ST.scene === "title" && ST.sound.music && ST.sound.music !== J.el) ST.sound.music.pause(); };
+const press0 = ST.press; ST.press = id => { if (id === "juke") J.next(); else press0(id); };
+const go0 = ST.go; ST.go = sc => { const was = ST.scene; go0(sc); if (was === "title" && sc !== "title" && J.el) J.stopFile(); };
+const mute0 = ST.setMuted; if (mute0) ST.setMuted = m => { mute0(m); if (J.el) J.el.muted = m; };
+document.addEventListener("visibilitychange", () => { if (J.el) { if (document.hidden) J.el.pause(); else if (ST.scene === "title") J.el.play().catch(() => {}); } });
+const gs0 = window.__gs;
+window.__gs = () => { const o = gs0(), t = J.cur(); o.jukebox = { on: J.i >= 0, i: J.i, n: J.list.length, name: t ? t.name : null, kind: J.kind, playing: J.kind === "file" ? !!(J.el && !J.el.paused) : null }; return o; };
+return J;
+})();
+
+const D = {"game.assets":"base assets/\nsheet units units.png 16 16\nsound hit hit.wav bus sfx vol 0.7\nsound get get.ogg bus sfx\nbus music 0.6\nbus sfx 1 max 6\nbus vo 1\nduck music by vo 0.25 fade 0.1\ngroup boot units hit get\non hit.hit hit\nsprite hero units 1 scale 0.5\nsprite imp units 2 scale 0.4\nsprite brute units 0 scale 0.6","game.cam":"tick 1/60\nview 160 160\nroom 16 16\ncell 10\ndeadzone 1.5 1\nsmooth 8\nlookahead 1.5","game.hit":"tick 1/60\nseed 99\nhitstop-cap 0.12\nhurt hero hp 300 team blue r 0.45 iframe 0.40\nhurt imp hp 10 team red r 0.35 iframe 0.05\nhurt brute hp 40 team red r 0.70 iframe 0.15\natk jab startup 0.04 active 0.08 recover 0.10 dmg 6 type slash box circle 0.6 reach 0.6 knock 2.5 hitstop 0.04 crit 0.20 mul 1.75\natk claw startup 0.25 active 0.10 recover 0.40 dmg 5 type slash box circle 0.4 reach 0.5","game.level":"size 16 16\ncell 1\nfill X\ntile _ floor cost 1 placeable\ntile X rock solid\ntile E gate cost 1 zone spawn\ntile C mark cost 1 zone goal\nroom hall 1 1 14 14 floor _\nentry north 8 15 glyph E\nentry west 1 8 glyph E\nentry south 8 1 glyph E\ngoal centre 8 8 glyph C\nprop pillar 4 11 size 1 1 blocks X\nprop pillar 12 4 size 1 1 blocks X\nprop torch 3 3 light torch #ff9a3c 1.6 r 3.5\nprop torch 13 13 light torch #ff9a3c 1.6 r 3.5\nprop crate 11 11 size 1 1","game.light":"amb #fff2e0 1.9","game.loot":"tick 1/60\nmagnet 2.5\nmagnettime 0.4\ncollect 0.4\nflytime 0.40\ncap 30\ncapmode merge\nscatter 0.3\npop pop\nseed 9\nitem gem\nitem heart\ntable imp rolls 1\n  drop gem 90\n  drop heart 10\ntable brute rolls 1\n  drop heart 100","game.menu":"tick 1/60\ntransition 0\nstart title\nscreen title\ntitle \"North Pole\"\nitem Play action emit play close\nscreen pause\ntitle \"Paused\"\nitem Resume action emit resume close\nitem Options action push options\nitem Menu action emit menu go title\nscreen options\ntitle \"Options\"\nsetting music range 0 10 default 7 step 1\nsetting sfx range 0 10 default 8 step 1\nsetting lighting enum high low off default high\nitem Back action pop\nscreen over\ntitle \"Year Report\"\nitem Again action emit again close\nitem Menu action emit menu go title","game.runtime":"tick 1/60\norder input steer move hit wave loot cam draw\nfreeze steer move wave loot\nfreezer hit\ndeath hit.kill target kill\nshake hit.hit 0.20 0.12\nkind hero hit hero collector camera leader\nkind imp hit imp swarm loot imp\nkind brute hit brute swarm loot brute","game.save":"version 1\nslots 1\nsection round","game.swarm":"tick 1/60\nseed 4\nfollow 0.9\nseparate 0.7\nspread 1.6\nslots 4\nstick 0.30\naccel 22\nspeed 2.2\nrecall 1.2\ngroup pack","game.tiles":"size 10\nseed 9\nchunk 8\nblend 2\nterrain floor glyphs _ color #6b5f52 #625648 rank 0\nterrain gate glyphs E color #3c6a8a #467ea0 rank 1\nterrain mark glyphs C color #7a6a40 #6e5f38 rank 1\nterrain rock glyphs X color #3a3742 #312e38 rank 3 wall #1e1c24\ndecal grit on floor density 0.35 color #85786a size 1 1\nprop pillar color #4a4652 size 7 13\nprop torch color #e0a040 size 3 6\nprop crate color #9a7040 size 7 7","game.ui":"action left ArrowLeft KeyA pad 14 \"Move left\"\naction right ArrowRight KeyD pad 15 \"Move right\"\naction up ArrowUp KeyW pad 12 \"Move up\"\naction down ArrowDown KeyS pad 13 \"Move down\"\naction act Enter Space pad 0 \"Confirm\"\naction pause Escape KeyP pad 9 \"Pause\"\nintent up up\nintent down down\nintent left left\nintent right right\nintent confirm act\nintent cancel pause\nopen pause pause\naxis x left right\naxis y down up\nslot 0","game.wave":"tick 1/60\nseed 7\nopen 0.30\nrest 1.20\nboss every 3\ntype imp threat 1\ntype brute threat 6\nmark north 8 15\nmark south 8 1\nmark west 1 8\nwave 1 budget 4\n  group imp 4 at north spacing 0.50 delay 0\nwave 2 budget 8\n  group imp 4 at south spacing 0.40 delay 0\n  group imp 3 at west spacing 0.60 delay 1.00\nwave 3 budget 14 boss\n  group imp 6 at north spacing 0.35 delay 0\n  group brute 1 at west spacing 0 delay 1.50","game.world":"view 160 160\nlayer ground tiles\nlayer things ysort\nlayer light light\nlook hero #7fc3ff 0.40 ring #ffffff\nlook imp #9ad06a 0.30\nlook brute #d04a4a 0.55","slice.clock":"tick 1/60\nseed 1\ndaylength 10\nseason spring days 1\nseason summer days 1\nseason fall days 1\nseason crunch days 1\ndeadline toys 8 by day 4\ncheckpoint toys 3 by day 2\neve","slice.job":"tick 1/60\nseed 1\nauto priority\nspace\ngrudge bram nim\nsnack cocoa from cocoapot\nwalk 4\ndrain 1\nrestore 5\ntired 0\nrepair 1.0\ncot at 2 8\njob toymaker station toymaker at 4 8\njob painter  station painter  at 5 8\njob repair\njob rest     station cot\njam painter\nworker holly\n  can toymaker painter repair rest\n  at 5 8\n  stamina 100\n  max 100\n  skill repair 2\nworker pip\n  can toymaker painter rest\n  at 4 8\n  stamina 8\n  max 8\nworker bram\n  can toymaker painter rest\n  at 3 8\n  stamina 100\n  max 100\nworker nim\n  can toymaker painter rest\n  at 6 8\n  stamina 100\n  max 100\nworker cedar\n  can painter rest\n  at 7 8\n  stamina 100\n  max 100\n  skill painter 1.5\n  likes cocoa","slice.scenario":"seed 1\nstage load  need piles.toys 8 weight 2\nstage route need houses 6\nmodifier rush  chance 0.5 stage load  add 2\nmodifier storm chance 0.5 stage route add 2","slice.stock":"tick 1/60\nseed 1\nresource wood cap 99\nresource paint cap 99\nresource unpainted cap 99\nresource toys cap 99\nresource cocoa cap 99\npile woodbin     has wood 24 at 4 8\npile paintpot    has paint 16 at 7 8\npile painterin   has unpainted 0 at 5 8\npile toypile     has toys 0 at 9 8\npile cocoapot    has cocoa 6 at 2 6\nstation toymaker\n  in wood 1\n  out unpainted 1\n  time 2.0\n  pilein woodbin\n  pileout painterin\nstation painter\n  in unpainted 1 from painterin\n  in paint 1 from paintpot\n  out toys 1 to toypile\n  time 2.5\nquota toys 8"};
+const BALANCE = {
+quota: 18,
+daySec: 2.8,
+walk: 0.42,
+joyKeep: 66,
+beliefKeep: 56,
+raidJoy: 16,
+raidBelief: 10,
+probeJoy: 9,
+probeBelief: 5,
+gradeS: 7, gradeA: 6, gradeB: 4, gradeC: 2,
+note: "TUNED GUESS — see BALANCE.md."
+};
+const SEASONS = ["spring", "summer", "fall", "december"];
+const DAYS_PER = 3;
+const SPEED = 70;
+const STATIONS = [
+{ id: "toymaker", name: "Toymaker", job: "toymaker", x: 0.00, y: 0.58, w: 0.28, h: 0.42, ax: 0.16, ay: 0.90, adj: ["painter"] },
+{ id: "painter",  name: "Painter",  job: "painter",  x: 0.22, y: 0.50, w: 0.20, h: 0.30, ax: 0.33, ay: 0.78, adj: ["toymaker"] },
+{ id: "conveyor", name: "Conveyor", job: "hauler",   x: 0.48, y: 0.66, w: 0.28, h: 0.34, ax: 0.60, ay: 0.92, adj: ["wrap"] },
+{ id: "wrap",     name: "Wrap",     job: "wrap",     x: 0.76, y: 0.64, w: 0.24, h: 0.36, ax: 0.88, ay: 0.90, adj: ["conveyor", "cot"] },
+{ id: "cot",      name: "Cot",      job: "rest",     x: 0.68, y: 0.46, w: 0.18, h: 0.28, ax: 0.76, ay: 0.68, adj: ["wrap"] },
+{ id: "bell",     name: "Bell",     job: "bell",     x: 0.22, y: 0.48, w: 0.14, h: 0.28, ax: 0.28, ay: 0.72, adj: [] },
+{ id: "ward",     name: "Ward",     job: "ward",     x: 0.58, y: 0.42, w: 0.16, h: 0.28, ax: 0.66, ay: 0.64, adj: [] },
+];
+const DOOR = { x: 0.34, y: 0.12, w: 0.28, h: 0.48, ax: 0.47, ay: 0.50 };
+const SANTA_FEET = { x: 0.40, y: 0.80 };
+function bumpBuffer() {
+const W = 320, H = Math.max(180, Math.min(400, Math.round(320 * ST.ch / ST.cw)));
+if (ST.BW !== W || ST.BH !== H) {
+ST.BW = W; ST.BH = H; ST.sc = ST.cw / ST.BW;
+ST.buf = ST.mk(ST.BW, ST.BH); ST.g = ST.buf.getContext("2d");
+ST.SY = Math.floor(ST.BH * ST.SAFE);
+}
+}
+function loadImg(src) { const i = new Image(); i.src = src; return i; }
+const IMG = {
+workshop: loadImg("assets/year1/workshop.jpg"),
+santa: loadImg("assets/year1/santa.png"),
+holly: loadImg("assets/year1/holly.png"),
+bram: loadImg("assets/year1/bram.png"),
+nim: loadImg("assets/year1/nim.png"),
+cedar: loadImg("assets/year1/cedar.png"),
+pip: loadImg("assets/year1/pip.png"),
+ash: loadImg("assets/year1/ash.png"),
+mrs: loadImg("assets/year1/mrs.png"),
+krampus: loadImg("assets/year1/krampus.png"),
+quitter: loadImg("assets/year1/quitter.png"),
+painter: loadImg("assets/year1/painter.png"),
+cot: loadImg("assets/year1/prop-cot.png"),
+cocoa: loadImg("assets/year1/prop-cocoa.png"),
+sleigh: loadImg("assets/year1/prop-sleigh.png"),
+wreath: loadImg("assets/year1/prop-wreath.png"),
+moodHappy: loadImg("assets/year1/mood-pip-happy.png"),
+moodTired: loadImg("assets/year1/mood-pip-tired.png"),
+moodGrumpy: loadImg("assets/year1/mood-pip-grumpy.png"),
+moodDoubt: loadImg("assets/year1/mood-pip-doubting.png"),
+};
+let Y = null;
+let cursor = { x: 160, y: 90 };
+let selected = null;
+let banner = { text: "", kind: "info", t: 0 };
+let dayAcc = 0;
+let eveT = 0;
+let prefsApplied = "";
+let dayHeld = false;
+let pendingEnd = false;
+let particles = [];
+function showBanner(text, kind, sec) { banner = { text: text, kind: kind || "info", t: sec == null ? 2.4 : sec }; }
+function elf(id) { return Y.crew.find(e => e.id === id); }
+function station(id) { return STATIONS.find(s => s.id === id); }
+function occupied(sid) { return Y.crew.filter(e => e.job === sid && !Y.quitters.includes(e.id)); }
+function crewTemplate() {
+return [
+{ id: "holly", name: "Holly", skill: "tinker",  likes: null,    grudge: null,  job: "toymaker", tired: 0, joy: 80, belief: 80 },
+{ id: "bram",  name: "Bram",  skill: null,      likes: null,    grudge: "nim", job: "painter",  tired: 0, joy: 76, belief: 74 },
+{ id: "nim",   name: "Nim",   skill: null,      likes: null,    grudge: "bram",job: "wrap",     tired: 0, joy: 74, belief: 74 },
+{ id: "cedar", name: "Cedar", skill: "painter", likes: "cocoa",  grudge: null,  job: "painter",  tired: 0, joy: 80, belief: 78 },
+{ id: "pip",   name: "Pip",   skill: null,      likes: null,    grudge: null,  job: "wrap",     tired: 5, joy: 70, belief: 72 },
+{ id: "ash",   name: "Ash",   skill: "bell",    likes: null,    grudge: null,  job: "bell",     tired: 0, joy: 82, belief: 84 },
+];
+}
+function placeAtJob(e) {
+const s = station(e.job) || station("toymaker");
+e.px = s.ax; e.py = s.ay; e.tx = s.ax; e.ty = s.ay;
+e.facing = (s.ax < 0.47) ? 1 : -1;
+e.bob = 0;
+}
+function fresh(seed) {
+Y = {
+seed: seed >>> 0, year: 1, season: "spring", dayInSeason: 1, day: 1,
+daysLeft: SEASONS.length * DAYS_PER,
+stock: { wood: 8, paint: 6, toys: 0, cocoa: 3 },
+joy: 70, belief: 70, quota: BALANCE.quota,
+jam: false, jamDays: 0,
+crew: crewTemplate(), quitters: [],
+mrs: { here: false, x: DOOR.ax, y: DOOR.ay, tx: 0.55, ty: 0.70, facing: 1 },
+krampus: { kind: "", phase: "", t: 0, x: DOOR.ax, y: DOOR.ay, facing: 1 },
+santa: { x: SANTA_FEET.x, y: SANTA_FEET.y },
+wardOk: true, phase: "year", eveStep: 0, grade: null, reasons: [],
+log: [], delivered: 0, lighting: "high", doorDark: 0, freezeDay: false,
+};
+Y.crew.forEach(placeAtJob);
+selected = "holly";
+cursor = { x: ST.BW * 0.45, y: ST.BH * 0.50 };
+dayAcc = 0; eveT = 0; particles = []; pendingEnd = false;
+showBanner("Spring at the workshop. Assign the crew.", "info", 3);
+}
+function adjacentGrudge() {
+for (const e of Y.crew) {
+if (!e.grudge || Y.quitters.includes(e.id)) continue;
+const a = station(e.job), o = elf(e.grudge);
+if (!a || !o || Y.quitters.includes(o.id)) continue;
+const b = station(o.job);
+if (b && (a.adj || []).includes(b.id)) return true;
+}
+return false;
+}
+function seasonOfDay(d) { return SEASONS[Math.min(SEASONS.length - 1, Math.floor((d - 1) / DAYS_PER))]; }
+function applySettings() {
+if (!ST.SH || !ST.SH.menu || !ST.SH.menu.settings) return;
+const s = ST.SH.menu.settings();
+const key = s.music + ":" + s.sfx + ":" + s.lighting;
+if (key === prefsApplied) return;
+prefsApplied = key;
+if (ST.asset && ST.asset.setBus) ST.asset.setBus("sfx", (s.sfx == null ? 8 : s.sfx) / 10 * 0.9);
+const mb = ST.SS && ST.SS.mixer && ST.SS.mixer.bus && ST.SS.mixer.bus.music || ST.music && ST.music.bus;
+if (mb && mb.gain) mb.gain.value = (s.music == null ? 7 : s.music) / 10 * 0.8;
+if (ST.sound && ST.sound.master) {
+ST.sound.master.gain.value = ST.sound.muted ? 0 : (s.sfx == null ? 8 : s.sfx) / 10 * 0.9;
+}
+Y && (Y.lighting = s.lighting || "high");
+}
+function applyShot(name) {
+if (!Y || !name) return;
+if (name === "spring") {
+showBanner("Spring at the workshop. Assign the crew.", "info", 99);
+}
+if (name === "prints" || name === "footprints") {
+Y.day = 2; Y.season = "spring"; Y.phase = "year"; Y.freezeDay = true;
+startKrampus("prints");
+Y.krampus.t = 0.35; Y.doorDark = 0.22;
+showBanner("Hoofprints in the snow. Krampus is watching.", "warn", 99);
+}
+if (name === "krampus" || name === "raid") {
+Y.day = 11; Y.season = "december"; Y.dayInSeason = 2; Y.daysLeft = 1; Y.phase = "year";
+Y.joy = 48; Y.belief = 52; Y.freezeDay = true; Y.doorDark = 0.7;
+Y.krampus = { kind: "raid", phase: "enter", t: 0.9, x: 0.48, y: 0.62, facing: 1 };
+showBanner("RAID. Krampus steals joy and belief!", "raid", 99);
+}
+if (name === "december" || name === "crunch") {
+Y.day = 10; Y.season = "december"; Y.dayInSeason = 1; Y.daysLeft = 2; Y.phase = "year";
+Y.stock.toys = 9; Y.jam = true;
+showBanner("December crunch. The raid may come.", "info", 99);
+}
+if (name === "eve") {
+Y.day = 13; Y.daysLeft = 0; Y.season = "december"; Y.stock.toys = Y.quota;
+startEve(); showBanner("Christmas Eve. The plan runs on its own.", "info", 99);
+}
+if (name === "report" || name === "over") {
+Y.day = 13; Y.daysLeft = 0; Y.stock.toys = Y.quota; Y.joy = 68; Y.belief = 62; Y.quitters = [];
+finishEve();
+}
+}
+function maybeQuit(e, log) {
+if (!e || Y.quitters.includes(e.id)) return;
+if (e.belief <= 0) {
+Y.quitters.push(e.id); e.job = null;
+e.tx = 0.10 + Y.quitters.length * 0.06; e.ty = 0.88;
+log.push(e.name + " stopped believing and quit.");
+showBanner(e.name + " has quit — a grey office drone now.", "warn", 3);
+}
+}
+function startKrampus(kind) {
+Y.krampus = { kind: kind, phase: "prints", t: 0, x: DOOR.ax, y: 0.40, facing: 1 };
+Y.freezeDay = true; Y.doorDark = 0;
+if (kind === "prints") showBanner("Hoofprints in the snow. Krampus is watching.", "warn", 3);
+else if (kind === "raid") showBanner("RAID. Krampus is at the door!", "raid", 3);
+else showBanner("Krampus probes the hall.", "warn", 3);
+}
+function spawnDrain(from, to) {
+for (let i = 0; i < 6; i++) {
+particles.push({ x: from.x, y: from.y, tx: to.x, ty: to.y, t: 0, life: 0.7 + Math.random() * 0.3, gold: true });
+}
+}
+function stepKrampus(dt) {
+const K = Y.krampus;
+if (!K || !K.phase || K.phase === "gone") { Y.freezeDay = false; return; }
+K.t += dt;
+const bell = Y.crew.some(e => e.job === "bell" && !Y.quitters.includes(e.id));
+if (K.phase === "prints") {
+Y.doorDark = Math.min(0.35, K.t * 0.3);
+if (K.t > 0.9) {
+if (K.kind === "prints") { K.phase = "gone"; Y.doorDark = 0; Y.freezeDay = false; }
+else { K.phase = "darken"; K.t = 0; }
+}
+} else if (K.phase === "darken") {
+Y.doorDark = Math.min(0.75, 0.35 + K.t);
+if (K.t > 0.6) { K.phase = "enter"; K.t = 0; }
+} else if (K.phase === "enter") {
+Y.doorDark = 0.55;
+K.y = 0.40 + Math.min(1, K.t / 1.6) * 0.32;
+K.x = 0.48;
+if (K.t > 1.6) { K.phase = "drain"; K.t = 0; }
+} else if (K.phase === "drain") {
+if ((K.t * 10 | 0) !== ((K.t - dt) * 10 | 0)) {
+const live = Y.crew.filter(e => !Y.quitters.includes(e.id));
+const t = live[Math.floor(Math.random() * Math.max(1, live.length))];
+if (t) spawnDrain({ x: t.px, y: t.py - 0.12 }, { x: K.x + 0.04, y: K.y - 0.22 });
+}
+if (K.t > 1.3) {
+if (bell) { K.phase = "chase"; K.t = 0; const ash = elf("ash"); if (ash && ash.job === "bell") { ash.tx = K.x - 0.08; ash.ty = K.y; } }
+else { K.phase = "leave"; K.t = 0; }
+}
+} else if (K.phase === "chase") {
+showBanner(K.t < 0.2 ? "The Bell Ringer chases Krampus off!" : banner.t > 0 ? banner.text : "The Bell Ringer chases Krampus off!", bell ? "warn" : "raid", 2);
+K.facing = -1;
+K.y -= 0.22 * dt; K.x -= 0.04 * dt;
+if (K.t > 1.4 || K.y < 0.36) { K.phase = "gone"; Y.doorDark = 0; Y.freezeDay = false; }
+} else if (K.phase === "leave") {
+K.facing = -1;
+K.y -= 0.20 * dt;
+if (K.t > 1.5 || K.y < 0.36) { K.phase = "gone"; Y.doorDark = 0; Y.freezeDay = false; }
+}
+}
+function stepWalk(e, dt, speed) {
+const sp = speed == null ? BALANCE.walk : speed;
+const dx = e.tx - e.px, dy = e.ty - e.py;
+const d = Math.hypot(dx, dy);
+if (d < 0.012) { e.px = e.tx; e.py = e.ty; e.walking = false; return false; }
+e.walking = true;
+const step = Math.min(d, sp * dt);
+e.px += dx / d * step;
+e.py += dy / d * step;
+if (Math.abs(dx) > 0.01) e.facing = dx >= 0 ? 1 : -1;
+return true;
+}
+function assignElf(e, sid) {
+if (!e || Y.quitters.includes(e.id)) return;
+e.job = sid;
+const s = station(sid);
+if (s) { e.tx = s.ax; e.ty = s.ay; }
+}
+function resolveDay() {
+if (!Y || Y.phase !== "year") return;
+const log = [];
+const grudged = adjacentGrudge();
+if (grudged) { Y.joy = Math.max(0, Y.joy - 3); log.push("Bram and Nim are adjacent — output slips."); }
+let made = 0;
+for (const e of Y.crew) {
+if (Y.quitters.includes(e.id)) continue;
+if (e.job === "rest") { e.tired = Math.max(0, e.tired - 5); continue; }
+if (e.job === "ward") { Y.wardOk = true; e.tired += 1; continue; }
+if (e.job === "bell") { e.tired += 1; continue; }
+if (e.tired >= 7) { log.push(e.name + " is too tired to work."); continue; }
+if (e.likes === "cocoa" && Y.stock.cocoa <= 0) { log.push(e.name + " will not work without cocoa."); e.tired += 1; continue; }
+if (grudged && (e.id === "bram" || e.id === "nim")) { e.tired += 2; continue; }
+if (e.job === "painter" && Y.jam) { e.tired += 1; continue; }
+if (e.job === "toymaker" && Y.stock.wood > 0) { Y.stock.wood--; made += 1; e.tired += (e.id === "pip" ? 2 : 1); }
+if (e.job === "painter" && Y.stock.paint > 0) { Y.stock.paint--; made += (e.skill === "painter" ? 2 : 1); e.tired += 1; if (e.likes === "cocoa") Y.stock.cocoa = Math.max(0, Y.stock.cocoa - 1); }
+if (e.job === "wrap" || e.job === "hauler") { e.tired += (e.id === "pip" ? 2 : 1); }
+}
+if (Y.jam) {
+const fixer = Y.crew.find(e => !Y.quitters.includes(e.id) && (e.job === "painter" || e.job === "toymaker") && e.skill === "tinker");
+const any = Y.crew.find(e => !Y.quitters.includes(e.id) && e.job === "painter");
+Y.jamDays++;
+const need = fixer ? 1 : 2;
+if (Y.jamDays >= need && (fixer || any)) { Y.jam = false; Y.jamDays = 0; log.push((fixer || any).name + " cleared the paint jam."); ST.sfx && ST.sfx("fix"); }
+}
+Y.stock.toys += made;
+if (made) log.push("+" + made + " toys today (pile " + Y.stock.toys + ").");
+if (Y.day === 3 || Y.day === 7 || Y.day === 10) {
+Y.stock.cocoa += 3; Y.joy = Math.min(100, Y.joy + 6);
+Y.mrs.here = true; Y.mrs.x = DOOR.ax; Y.mrs.y = DOOR.ay; Y.mrs.tx = 0.56; Y.mrs.ty = 0.70;
+log.push("Mrs. Claus brought cocoa and cookies.");
+showBanner("Mrs. Claus is here with a snack run.", "good", 3);
+ST.sfx && ST.sfx("snack");
+} else if (Y.mrs.here) {
+Y.mrs.tx = DOOR.ax; Y.mrs.ty = DOOR.ay - 0.04;
+}
+if (Y.dayInSeason === 1 && Y.day > 1) { Y.stock.wood += 3; Y.stock.paint += 2; }
+if (Y.day === 4 && !Y.jam) { Y.jam = true; Y.jamDays = 0; log.push("The paint station jammed!"); showBanner("The paint station jammed. A Tinker is faster.", "warn", 3); ST.sfx && ST.sfx("jam"); }
+krampusDay(log);
+if (made >= 2 && !grudged) Y.joy = Math.min(100, Y.joy + 1);
+Y.log = Y.log.concat(log);
+Y.day++;
+Y.daysLeft = Math.max(0, SEASONS.length * DAYS_PER - (Y.day - 1));
+if (Y.daysLeft <= 0) { startEve(); return; }
+Y.season = seasonOfDay(Y.day);
+Y.dayInSeason = ((Y.day - 1) % DAYS_PER) + 1;
+if (Y.dayInSeason === 1 && Y.day > 1) showBanner(Y.season === "december" ? "December crunch. The raid may come." : ("It's " + Y.season + " now."), "info", 2.5);
+}
+function krampusDay(log) {
+const bell = Y.crew.some(e => e.job === "bell" && !Y.quitters.includes(e.id));
+const ward = Y.wardOk && Y.crew.some(e => e.job === "ward" && !Y.quitters.includes(e.id));
+Y.wardOk = ward;
+const resist = (bell ? 0.5 : 1) * (ward ? 0.7 : 1) * 0.85;
+if (Y.day === 2) {
+startKrampus("prints"); Y.belief = Math.max(0, Y.belief - 2);
+log.push("Strange hoofprints in the spring snow.");
+} else if (Y.day === 5 || Y.day === 8) {
+startKrampus("probe");
+const drain = Math.round(BALANCE.probeJoy * resist);
+Y.joy = Math.max(0, Y.joy - drain);
+Y.belief = Math.max(0, Y.belief - Math.round(BALANCE.probeBelief * resist));
+const low = Y.crew.filter(e => !Y.quitters.includes(e.id)).sort((a, b) => a.joy - b.joy)[0];
+if (low) { low.joy = Math.max(0, low.joy - drain); low.belief = Math.max(0, low.belief - Math.round(5 * resist)); maybeQuit(low, log); }
+log.push("Krampus probed the hall (joy -" + drain + ").");
+} else if (Y.day === 11) {
+startKrampus("raid");
+const drain = Math.round(BALANCE.raidJoy * resist);
+Y.joy = Math.max(0, Y.joy - drain);
+Y.belief = Math.max(0, Y.belief - Math.round(BALANCE.raidBelief * resist));
+for (const e of Y.crew) {
+if (Y.quitters.includes(e.id)) continue;
+e.joy = Math.max(0, e.joy - drain);
+e.belief = Math.max(0, e.belief - Math.round(7 * resist));
+maybeQuit(e, log);
+}
+log.push("December raid!" + (bell ? " Ash's bell drove him back." : ""));
+ST.sfx && ST.sfx("raid");
+}
+}
+function startEve() {
+Y.phase = "eve"; Y.eveStep = 0; eveT = 0;
+showBanner("Christmas Eve. The plan runs on its own.", "info", 3);
+}
+function eveAdvance() {
+Y.eveStep++;
+if (Y.eveStep === 1) showBanner("The sleigh is loaded.", "good", 2);
+if (Y.eveStep === 2) showBanner("Deliveries are underway.", "good", 2);
+if (Y.eveStep === 3) {
+const bell = Y.crew.some(e => e.job === "bell" && !Y.quitters.includes(e.id));
+startKrampus(bell ? "probe" : "raid");
+showBanner(bell ? "Krampus tries the hall, but the bell holds." : "Krampus makes one last attempt!", bell ? "warn" : "raid", 2.5);
+if (!bell) { Y.joy = Math.max(0, Y.joy - 4); Y.belief = Math.max(0, Y.belief - 3); }
+}
+if (Y.eveStep >= 4) finishEve();
+}
+function finishEve() {
+Y.delivered = Math.min(Y.stock.toys, Y.quota);
+const reasons = [];
+let pts = 0;
+if (Y.delivered >= Y.quota) { pts += 3; reasons.push("Quota met (" + Y.delivered + "/" + Y.quota + " toys)."); }
+else reasons.push("Short of quota (" + Y.delivered + "/" + Y.quota + " toys).");
+if (Y.joy >= BALANCE.joyKeep) { pts += 1; reasons.push("The hall kept its joy."); } else reasons.push("Joy ended low (" + Y.joy + ").");
+if (Y.belief >= BALANCE.beliefKeep) { pts += 1; reasons.push("Belief held."); } else reasons.push("Belief ended low (" + Y.belief + ").");
+if (Y.quitters.length === 0) { pts += 1; reasons.push("No one quit."); } else reasons.push(Y.quitters.length + " elf(s) quit.");
+if (!adjacentGrudge()) { pts += 1; reasons.push("Grudges were not seated together at the end."); }
+else reasons.push("Bram and Nim were still adjacent.");
+Y.grade = pts >= BALANCE.gradeS ? "S" : pts >= BALANCE.gradeA ? "A" : pts >= BALANCE.gradeB ? "B" : pts >= BALANCE.gradeC ? "C" : "D";
+Y.reasons = reasons; Y.phase = "report"; banner.t = 0; pendingEnd = true;
+}
+function workshopRect() {
+const W = ST.BW, H = ST.BH;
+const top = 24, crewH = Math.max(50, Math.round(H * 0.28));
+const h = Math.min(Math.round(W * 9 / 16), Math.max(70, H - top - crewH));
+return { x: 0, y: top, w: W, h: h };
+}
+function crewSlots() {
+const n = Y.crew.length, W = ST.BW, wr = workshopRect();
+const y = wr.y + wr.h + 3, h = Math.max(28, ST.BH - y - 2), w = Math.floor(W / n);
+return Y.crew.map((e, i) => ({ id: e.id, x: i * w, y: y, w: w, h: h }));
+}
+function wrToBuf(u, v) {
+const wr = workshopRect();
+return { x: wr.x + u * wr.w, y: wr.y + v * wr.h };
+}
+function bufToStation(bx, by) {
+const wr = workshopRect();
+const u = (bx - wr.x) / wr.w, v = (by - wr.y) / wr.h;
+for (const s of STATIONS) if (u >= s.x && u <= s.x + s.w && v >= s.y && v <= s.y + s.h) return s;
+return null;
+}
+function crewHit(bx, by) {
+for (const s of crewSlots()) if (bx >= s.x && bx <= s.x + s.w && by >= s.y && by <= s.y + s.h) return s.id;
+return null;
+}
+function tryAssign(sid) {
+if (!selected || !Y || Y.phase !== "year") return;
+const e = elf(selected);
+if (!e || Y.quitters.includes(e.id)) return;
+assignElf(e, sid);
+ST.sfx && ST.sfx("assign");
+showBanner(e.name + " → " + (station(sid) || { name: sid }).name, "info", 1.4);
+}
+function clickBuf(bx, by) {
+if (!Y || Y.phase !== "year") return;
+const cid = crewHit(bx, by);
+if (cid) { selected = cid; ST.sfx && ST.sfx("tap"); return; }
+const st = bufToStation(bx, by);
+if (st) tryAssign(st.id);
+}
+function applyMove(dt) {
+const d = ST.dir ? ST.dir() : { x: 0, y: 0 };
+cursor.x += (d.x || 0) * SPEED * dt;
+cursor.y += (d.y || 0) * SPEED * dt;
+cursor.x = Math.max(4, Math.min(ST.BW - 4, cursor.x));
+cursor.y = Math.max(4, Math.min(ST.BH - 4, cursor.y));
+}
+function spriteFor(e) {
+if (Y.quitters.includes(e.id)) return IMG.quitter;
+if (e.id === "pip") {
+if (e.tired >= 7) return IMG.moodTired;
+if (adjacentGrudge() && (e.grudge || elf("bram") && elf("nim"))) { /* pip not in the grudge */ }
+if (e.belief < 40) return IMG.moodDoubt;
+if (e.tired >= 5) return IMG.moodTired;
+return IMG.moodHappy;
+}
+if (e.belief < 40 && IMG[e.id]) return IMG[e.id];
+return IMG[e.id];
+}
+function moodOf(e) {
+if (Y.quitters.includes(e.id)) return "quit";
+if (e.belief < 40) return "doubt";
+if (e.tired >= 7) return "tired";
+if (adjacentGrudge() && (e.id === "bram" || e.id === "nim")) return "grumpy";
+if (e.tired >= 5) return "tired";
+return "happy";
+}
+function drawSprite(g, img, feet, height, facing, bob, tint) {
+if (!img || !img.complete || !img.naturalWidth) return;
+const wr = workshopRect();
+const h = height, w = h * (img.width / img.height);
+const p = wrToBuf(feet.x, feet.y);
+const dx = p.x - w / 2, dy = p.y - h + bob;
+g.save();
+if (facing < 0) { g.translate(p.x, 0); g.scale(-1, 1); g.translate(-p.x, 0); }
+g.drawImage(img, dx, dy, w, h);
+if (tint) {
+g.globalCompositeOperation = "source-atop";
+g.fillStyle = tint;
+g.fillRect(dx, dy, w, h);
+g.globalCompositeOperation = "source-over";
+}
+g.restore();
+}
+function drawFootprints(g) {
+const wr = workshopRect();
+g.fillStyle = "rgba(28, 36, 52, 0.72)";
+const pts = [[0.45, 0.28], [0.48, 0.32], [0.46, 0.36], [0.49, 0.40], [0.47, 0.44]];
+for (const [u, v] of pts) {
+const p = wrToBuf(u, v);
+g.beginPath(); g.ellipse(p.x, p.y, 5.0, 2.4, 0.35, 0, Math.PI * 2); g.fill();
+}
+}
+const GAME = {
+title: { name: "NORTH POLE", lines: ["Year 1. Assign the crew, then watch Christmas Eve."], footer: () => ST.save.data.bestGrade ? "BEST: " + ST.save.data.bestGrade : "A planning puzzle." },
+saveDefaults: { bestGrade: "", plays: 0 },
+saveState: {
+get: () => Y ? { Y: JSON.parse(JSON.stringify(Y)), cursor: { x: cursor.x, y: cursor.y }, selected } : null,
+set: v => { if (!v || !v.Y) return; Y = v.Y; cursor = v.cursor || cursor; selected = v.selected; },
+},
+song: () => "workshop",
+mood: () => {
+const want = !Y ? "spring" : Y.phase === "eve" ? "eve" : (Y.krampus && Y.krampus.phase && Y.krampus.phase !== "gone" && Y.krampus.phase !== "prints" && (Y.krampus.kind === "raid" || Y.krampus.phase === "enter" || Y.krampus.phase === "drain") ? "raid" : (Y.season === "december" ? "crunch" : "spring"));
+if (want === GAME._moodPushed) return null;
+GAME._moodPushed = want;
+return want;
+},
+start() {
+ST.onResize = bumpBuffer; bumpBuffer();
+if (ST.save && ST.save.data) { ST.save.data.plays = (ST.save.data.plays || 0) + 1; ST.save.write && ST.save.write(); }
+fresh((ST.seed || 1) >>> 0);
+if (ST.Q && ST.Q.get("shot")) applyShot(ST.Q.get("shot"));
+},
+update(dt) {
+if (!Y) return;
+applySettings();
+if (pendingEnd && ST.scene === "play") { pendingEnd = false; ST.end(); return; }
+if (ST.scene === "play") {
+applyMove(dt);
+const skip = ST.keys && (ST.keys.has("Space") || ST.keys.has("KeyN") || ST.keys.has("Enter") || ST.keys.has("act"));
+if (Y.phase === "year" && skip && !dayHeld && !Y.freezeDay) { dayHeld = true; dayAcc = 0; resolveDay(); }
+if (!skip) dayHeld = false;
+if (banner.t > 0) banner.t -= dt;
+const share = {};
+for (const e of Y.crew) { if (!Y.quitters.includes(e.id) && e.job) { (share[e.job] || (share[e.job] = [])).push(e); } }
+for (const e of Y.crew) {
+if (Y.quitters.includes(e.id)) { e.tx = 0.08 + Y.quitters.indexOf(e.id) * 0.07; e.ty = 0.88; }
+else if (e.job) {
+const s = station(e.job), group = share[e.job] || [e], i = group.indexOf(e), n = group.length;
+if (s) { e.tx = s.ax + (i - (n - 1) / 2) * 0.075; e.ty = s.ay; }
+}
+stepWalk(e, dt);
+e.bob = e.walking ? Math.sin((ST.time || 0) * 14) * 1.6 : Math.sin((ST.time || 0) * 5 + e.px * 8) * 0.7;
+}
+if (Y.mrs && Y.mrs.here) {
+const moving = stepWalk(Y.mrs, dt, 0.32);
+if (!moving && Y.mrs.tx === DOOR.ax) Y.mrs.here = false;
+}
+stepKrampus(dt);
+particles = particles.filter(p => { p.t += dt; p.x += (p.tx - p.x) * 3 * dt; p.y += (p.ty - p.y) * 3 * dt; return p.t < p.life; });
+if (Y.phase === "year" && !Y.freezeDay) {
+dayAcc += dt;
+if (dayAcc >= BALANCE.daySec) { dayAcc = 0; resolveDay(); }
+} else if (Y.phase === "eve" && !Y.freezeDay) {
+eveT += dt;
+if (eveT >= 2.2) { eveT = 0; eveAdvance(); }
+}
+}
+},
+draw() {
+if (!Y) return;
+const g = ST.g, W = ST.BW, H = ST.BH;
+g.imageSmoothingEnabled = true;
+g.fillStyle = "#142428"; g.fillRect(0, 0, W, H);
+g.fillStyle = "#142428"; g.fillRect(0, 0, W, workshopRect().y);
+const wr = workshopRect();
+const ws = IMG.workshop;
+if (ws && ws.complete && ws.naturalWidth) g.drawImage(ws, wr.x, wr.y, wr.w, wr.h);
+else { g.fillStyle = "#2a3a40"; g.fillRect(wr.x, wr.y, wr.w, wr.h); }
+if (Y.season === "summer") { g.fillStyle = "rgba(255,230,140,0.07)"; g.fillRect(wr.x, wr.y, wr.w, wr.h); }
+if (Y.season === "fall") { g.fillStyle = "rgba(200,110,40,0.08)"; g.fillRect(wr.x, wr.y, wr.w, wr.h); }
+if (Y.season === "december" || Y.phase === "eve") { g.fillStyle = "rgba(180,210,255,0.08)"; g.fillRect(wr.x, wr.y, wr.w, wr.h); }
+for (const s of STATIONS) {
+const x = wr.x + s.x * wr.w, y = wr.y + s.y * wr.h, w = s.w * wr.w, h = s.h * wr.h;
+const mine = selected && elf(selected) && elf(selected).job === s.id;
+g.strokeStyle = mine ? "rgba(232,195,106,0.85)" : "rgba(255,255,255,0.10)";
+g.lineWidth = 1;
+g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+if (IMG.cot.complete && IMG.cot.naturalWidth) {
+const p = wrToBuf(0.78, 0.70), h = wr.h * 0.28, w = h * (IMG.cot.width / IMG.cot.height);
+g.drawImage(IMG.cot, p.x - w * 0.5, p.y - h, w, h);
+}
+if (IMG.cocoa.complete && IMG.cocoa.naturalWidth) {
+const p = wrToBuf(0.58, 0.62), h = wr.h * 0.20, w = h * (IMG.cocoa.width / IMG.cocoa.height);
+g.drawImage(IMG.cocoa, p.x - w * 0.5, p.y - h, w, h);
+}
+if ((Y.phase === "eve" || Y.phase === "report") && IMG.sleigh.complete && IMG.sleigh.naturalWidth) {
+const p = wrToBuf(0.50, 0.90), h = wr.h * 0.30, w = h * (IMG.sleigh.width / IMG.sleigh.height);
+g.drawImage(IMG.sleigh, p.x - w * 0.5, p.y - h, w, h);
+}
+if (occupied("ward").length) {
+const p = wrToBuf(0.635, 0.34);
+const rad = wr.h * 0.10;
+const grd = g.createRadialGradient(p.x, p.y, 2, p.x, p.y, rad);
+grd.addColorStop(0, "rgba(255,220,100,0.35)"); grd.addColorStop(1, "rgba(255,220,100,0)");
+g.fillStyle = grd; g.beginPath(); g.arc(p.x, p.y, rad, 0, Math.PI * 2); g.fill();
+}
+if (Y.doorDark > 0.02) {
+const d = wrToBuf(DOOR.x, DOOR.y);
+g.fillStyle = "rgba(6,8,14," + (Y.doorDark * 0.85) + ")";
+g.fillRect(d.x, d.y, DOOR.w * wr.w, DOOR.h * wr.h);
+}
+if (Y.krampus && Y.krampus.phase && Y.krampus.phase !== "gone") drawFootprints(g);
+const actors = [];
+actors.push({ kind: "santa", y: Y.santa.y, draw: () => drawSprite(g, IMG.santa, Y.santa, wr.h * 0.46, 1, 0) });
+if (Y.mrs && Y.mrs.here) actors.push({ kind: "mrs", y: Y.mrs.y, draw: () => drawSprite(g, IMG.mrs, Y.mrs, wr.h * 0.42, Y.mrs.facing, 0) });
+for (const e of Y.crew) {
+const quit = Y.quitters.includes(e.id);
+const img = quit ? IMG.quitter : spriteFor(e);
+const h = wr.h * (quit ? 0.40 : 0.38);
+actors.push({ kind: "elf", y: e.py, draw: () => drawSprite(g, img, { x: e.px, y: e.py }, h, e.facing || 1, e.bob || 0) });
+}
+const K = Y.krampus;
+if (K && K.phase && K.phase !== "gone" && K.phase !== "prints" && K.phase !== "darken") {
+const santaH = wr.h * 0.46, kh = santaH * 1.28;
+actors.push({ kind: "krampus", y: K.y, draw: () => drawSprite(g, IMG.krampus, { x: K.x, y: K.y }, kh, K.facing || 1, 0) });
+}
+actors.sort((a, b) => a.y - b.y);
+for (const a of actors) a.draw();
+for (const p of particles) {
+const q = wrToBuf(p.x, p.y);
+g.fillStyle = "rgba(232,195,106," + (1 - p.t / p.life) + ")";
+g.beginPath(); g.arc(q.x, q.y, 3.4, 0, Math.PI * 2); g.fill();
+}
+const lit = Y.lighting || "high";
+if (lit === "low") { g.fillStyle = "rgba(10,16,24,0.22)"; g.fillRect(0, 0, W, H); }
+if (lit === "off") { g.fillStyle = "rgba(20,20,24,0.38)"; g.fillRect(0, 0, W, H); }
+g.fillStyle = "#10181c";
+const slots = crewSlots();
+if (slots[0]) g.fillRect(0, slots[0].y - 1, W, H - slots[0].y + 1);
+for (const s of slots) {
+const e = elf(s.id);
+const quit = Y.quitters.includes(e.id);
+if (selected === e.id) { g.fillStyle = "rgba(232,195,106,0.28)"; g.fillRect(s.x, s.y, s.w, s.h); }
+const spr = quit ? IMG.quitter : IMG[e.id];
+if (spr && spr.complete && spr.naturalWidth) {
+const h = s.h - 14, w = Math.min(s.w - 4, h * (spr.width / spr.height));
+g.drawImage(spr, s.x + (s.w - w) / 2, s.y + 1, w, h);
+}
+}
+if (Y.phase !== "report" && ST.scene !== "over") {
+g.strokeStyle = "#e8c36a"; g.lineWidth = 2;
+g.beginPath(); g.arc(cursor.x, cursor.y, 6, 0, Math.PI * 2); g.stroke();
+g.beginPath(); g.moveTo(cursor.x - 10, cursor.y); g.lineTo(cursor.x + 10, cursor.y);
+g.moveTo(cursor.x, cursor.y - 10); g.lineTo(cursor.x, cursor.y + 10); g.stroke();
+}
+if (Y.phase === "report" || ST.scene === "over") {
+g.fillStyle = "rgba(6,10,14,0.84)";
+g.fillRect(0, 0, W, H);
+const px = Math.round(W * 0.10), py = Math.round(H * 0.08), pw = Math.round(W * 0.80), ph = Math.round(H * 0.62);
+g.fillStyle = "#1a2a2e";
+g.fillRect(px, py, pw, ph);
+g.strokeStyle = "#e8c36a"; g.lineWidth = 2;
+g.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+}
+},
+hud() {
+if (!Y || Y.phase === "report") return;
+const fs = ST.small ? 1 : ST.fs;
+const ink = "#f4efe4", gold = "#e8c36a", dim = "#b8c4c0";
+const season = Y.phase === "eve" ? "CHRISTMAS EVE" : Y.season.toUpperCase();
+ST.text(season + "  DAY " + Math.min(Y.day, 12) + "  EVE IN " + Y.daysLeft + "D", 8, 3, gold, fs);
+const jam = Y.jam ? "  JAM!" : "";
+ST.text("WOOD " + Y.stock.wood + "  PAINT " + Y.stock.paint + "  TOYS " + Y.stock.toys + "/" + Y.quota + "  COCOA " + Y.stock.cocoa + jam, 8, 3 + 8 * fs, ink, fs);
+ST.text("JOY " + Y.joy + "  BELIEF " + Y.belief + (Y.phase === "year" ? "   SPACE: NEXT DAY" : ""), 8, 3 + 16 * fs, dim, Math.max(1, fs * 0.85));
+const sy = ST.ch / ST.BH, sx = ST.sc;
+for (const s of crewSlots()) {
+const e = elf(s.id);
+const st = station(e.job);
+const job = Y.quitters.includes(e.id) ? "out" : (st ? st.name : "idle");
+const nameFs = Math.max(1, fs * 0.7);
+ST.text(e.name, (s.x + s.w / 2) * sx, (s.y + s.h) * sy - 11 * fs, selected === e.id ? gold : ink, nameFs, "c");
+ST.text(job, (s.x + s.w / 2) * sx, (s.y + s.h) * sy - 4 * fs, dim, Math.max(1, nameFs * 0.85), "c");
+}
+if (banner.t > 0 && banner.text) {
+const raid = banner.kind === "raid";
+const col = raid ? "#e24a4a" : banner.kind === "warn" ? "#e8c36a" : banner.kind === "good" ? "#8fd18f" : ink;
+ST.text(banner.text, ST.cw / 2, ST.ch * 0.16, col, fs, "c");
+}
+},
+over() {
+const g = Y && Y.grade ? Y.grade : "D";
+const rec = !ST.save.data.bestGrade || "SABCD".indexOf(g) < "SABCD".indexOf(ST.save.data.bestGrade);
+if (rec) { ST.save.data.bestGrade = g; ST.save.write(); }
+const lines = (Y && Y.reasons && Y.reasons.length) ? Y.reasons.slice(0, 5) : ["The year ended."];
+return { win: g === "S" || g === "A" || g === "B", title: "YEAR 1  " + g, lines: lines, brag: "North Pole Year 1: I got a " + g + "." };
+},
+sfx: {
+tap: tn => { tn(660, 880, 0.05, "sine", 0.05); },
+assign: tn => { tn(520, 780, 0.07, "triangle", 0.05); tn(780, 980, 0.08, "sine", 0.04, 0.06); },
+jam: tn => { tn(200, 140, 0.16, "square", 0.06); },
+fix: tn => { tn(440, 660, 0.1, "triangle", 0.05); },
+snack: tn => { tn(784, 988, 0.1, "sine", 0.05); },
+raid: tn => { tn(160, 90, 0.22, "sawtooth", 0.08); tn(90, 60, 0.2, "square", 0.06, 0.08); },
+get: tn => { tn(988, 1319, 0.08, "sine", 0.05); },
+},
+hook: () => {
+if (!Y) return { player: { x: 0, y: 0 }, left: 12 };
+return {
+player: { x: +cursor.x.toFixed(1), y: +cursor.y.toFixed(1) },
+left: Y.daysLeft, grade: Y.grade, phase: Y.phase, season: Y.season, day: Y.day,
+toys: Y.stock.toys, joy: Y.joy, belief: Y.belief, jam: Y.jam,
+quitters: Y.quitters.slice(), selected: selected,
+krampus: Y.krampus && Y.krampus.phase, kkind: Y.krampus && Y.krampus.kind,
+tick: (Y.day * 1000) | 0,
+};
+},
+};
+(function () {
+const c = ST.canvas;
+let sx = 0, sy = 0, down = false;
+c.addEventListener("pointerdown", e => { down = true; sx = e.clientX; sy = e.clientY; });
+c.addEventListener("pointerup", e => {
+if (!down) return; down = false;
+if (Math.hypot(e.clientX - sx, e.clientY - sy) < 12) {
+const p = ST.toBuf(e.clientX, e.clientY);
+clickBuf(p.x, p.y);
+}
+});
+})();
+ST.run(GAME);
+</script>
+</body>
+</html>

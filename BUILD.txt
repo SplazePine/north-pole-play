@@ -1,0 +1,50 @@
+North Pole — Year 1 first playable, rough fixes (t2076u)
+America/Chicago (CST). Rebuilt Saturday Nov 21, 2026, about 11:30 AM CST (hoofprints-in-the-snow follow-up).
+Stage clocks: GO 9:46 AM CST; rough-fixes stage 11:02 AM CST. Nothing merged, pushed, or published.
+
+What changed since the feel-gate zip
+  The workshop is an empty hall. Elves, Santa and Mrs. Claus are real sprites
+  that walk, work, rest and face. Krampus stalks in from the doorway (taller
+  than Santa) with footprints, a darkened door, drain motes and a Bell chase.
+  The report card has a dark veil and a readable panel. New art: cot, wreath
+  ward, loaded sleigh, cocoa pot, a proper mood strip, and a blank-faced
+  human-eared Quitter. Quota and grades were tuned by seeded sims (see
+  BALANCE.md — TUNED GUESSES). Sounds are still placeholders (MISSING-SFX.md).
+
+How to play (web)
+  Open game.html in a browser (or open index.html). Click PLAY.
+  Click a crew portrait, then a station. Space (or N) advances one day.
+  Drag or arrow keys move the overseer cursor. Esc / pause: Music, SFX, Lighting.
+
+How to play (Linux)
+  From this folder:  ./run.sh
+  Or open game.html in Firefox / Chrome yourself.
+
+Rebuild from source (in the git repo, not required to play the zip)
+  python3 tools/build.py
+
+Checks that ran
+  python3 tools/build.py                         ok (player 174,526 bytes / 54,517 gzip)
+  node tools/sim/run-slice-checks.js             21/21 (336 ms)
+  Mini Tier-1: arrows, pause freeze, Options (music 7 / sfx 8 / lighting high)
+  F8 without &tour=1 stays on play (starter rule); with &tour=1, F8 goes to over
+  Seeded balance sims: careless D, decent B, sharp S (BALANCE.md)
+  Official test/run-test.js (Playwright already on the box; no installs;
+    CHROME_PATH=/usr/bin/google-chrome, ONLY=fast, --passes 1):
+    first sitting 7/9 (full Year 1 runs passed; game-over over-timeout and
+    Tunescript mood overwrite failed). After fixes, those two checks were
+    re-run and passed. The full 9-check sitting was not repeated.
+
+Known leftovers
+  Walk is a bob/hop and facing, not a Movespell cutout rig.
+  Painter corner is a little tight when two elves share it.
+  Drain motes and the Bell chase are easy to miss in a still (they play in motion).
+  Walk is a bob/hop and facing, not a Movespell cutout rig.
+  Crew strip still peeks under the report panel.
+  Sounds are procedural stubs — no new ElevenLabs audio.
+  Quota 18 and the grade bands are TUNED GUESSES (BALANCE.md).
+  Cocoa pot reads a bit like whipped cream; the empty hall already paints a wreath.
+  Official full 9/9 was not re-run in one sitting after the two-check fixes.
+
+Git
+  Repo: /workspace/gamedevbot/games/north-pole  branch main  (local only, not pushed)
