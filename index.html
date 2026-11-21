@@ -4001,9 +4001,7 @@ let bx = Math.round((W - total) / 2), by = py + ph - pad - bh;
 drawGoldBtn(c, "again", bx, by, bw, bh, "AGAIN", true);
 drawGoldBtn(c, "menu", bx + bw + gap, by, bw, bh, "MENU", false);
 };
-ST.drawPauseBtn = () => {
-drawGoldBtn(ST.ctx, "pause", ST.cw - 96, 6, 44, 44, "II", false, { font: 16 });
-};
+ST.drawPauseBtn = () => {};
 },
 start() {
 ST.onResize = layout; layout();
@@ -4207,7 +4205,7 @@ g.beginPath(); g.moveTo(cursor.x - 10, cursor.y); g.lineTo(cursor.x + 10, cursor
 g.moveTo(cursor.x, cursor.y - 10); g.lineTo(cursor.x, cursor.y + 10); g.stroke();
 }
 if (Y.phase === "report" || ST.scene === "over") {
-g.fillStyle = "rgba(6,10,14,0.82)";
+g.fillStyle = "rgba(8,12,16,0.92)";
 g.fillRect(0, 0, W, H);
 }
 },
