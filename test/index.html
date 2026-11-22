@@ -10032,7 +10032,7 @@ const p = wrToBuf(feet.x, feet.y);
 if (M && M.draw2d && M.ready) {
 M.face = facing < 0 ? -1 : 1;
 drawSnow(g, figName(figKey(id)), M, p, height, M.face);
-M.draw2d(g, p.x, p.y, { px: height, shadow: false });
+M.draw2d(g, p.x - height * (M.x || 0), p.y + height * (M.y || 0), { px: height, shadow: false });
 return;
 }
 drawSprite(g, img, feet, height, facing, bob);
