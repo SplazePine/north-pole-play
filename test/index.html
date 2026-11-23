@@ -6477,7 +6477,7 @@ for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 1677
 return (h >>> 0).toString(16);
 }
 function parse(text) {
-const S = { slop: DEFAULTS.slop, drag: DEFAULTS.drag, empty: DEFAULTS.empty, toggle: DEFAULTS.toggle, layers: [], errors: [] };
+const S = { slop: DEFAULTS.slop, drag: DEFAULTS.drag, empty: DEFAULTS.empty, toggle: DEFAULTS.toggle, hashZ: false, layers: [], errors: [] };
 String(text || "").split(/\r?\n/).forEach(function (raw, li) {
 const line = raw.replace(/\s+#.*$/, "").trim();
 if (!line || line.charAt(0) === "#") return;
@@ -6494,6 +6494,9 @@ else err("empty needs deselect or keep");
 } else if (w0 === "toggle") {
 if ((t[1] === "on" || t[1] === "off") && t.length === 2) S.toggle = t[1] === "on";
 else err("toggle needs on or off");
+} else if (w0 === "hashz") {
+if (t.length === 1 || (t.length === 2 && (t[1] === "on" || t[1] === "off"))) S.hashZ = t[1] !== "off";
+else err("hashz is a flag (optional on or off)");
 } else if (w0 === "layer") {
 const name = t[1];
 const role = t[2] || "plain";
@@ -6523,7 +6526,8 @@ if (!sh || typeof sh !== "object" || !isFinite(sh.x) || !isFinite(sh.y)) return 
 if (sh.r != null) return isFinite(sh.r) && sh.r >= 0;
 return isFinite(sh.w) && isFinite(sh.h) && sh.w >= 0 && sh.h >= 0;
 }
-function create(specOrText) {
+function create(specOrText, opt) {
+opt = opt || {};
 const spec = typeof specOrText === "string" ? parse(specOrText) : (specOrText || parse(""));
 const layerBy = {};
 spec.layers.forEach(function (l) { layerBy[l.name] = { role: l.role, items: {} }; });
@@ -6682,13 +6686,15 @@ return P;
 };
 P.setOff = function (v) { off = !!v; return P; };
 P.isOff = function () { return off; };
-P.hash = function () {
+P.hash = function (hashOpt) {
+const withZ = !!(hashOpt && hashOpt.z) || !!opt.hashZ || !!spec.hashZ;
 const parts = ["sel:" + (selected == null ? "" : selected), off ? "off" : "on"];
 spec.layers.forEach(function (l) {
 const L = layerBy[l.name];
 Object.keys(L.items).sort().forEach(function (id) {
 const it = L.items[id], s = it.shape;
-parts.push(l.name + ":" + id + ":" + [s.x, s.y, s.r, s.w, s.h].join(",") + ":" + (it.locked ? 1 : 0) + (it.enabled ? 1 : 0) + ":z" + (it.z || 0));
+const base = l.name + ":" + id + ":" + [s.x, s.y, s.r, s.w, s.h].join(",") + ":" + (it.locked ? 1 : 0) + (it.enabled ? 1 : 0);
+parts.push(withZ ? base + ":z" + (it.z || 0) : base);
 });
 });
 parts.push("log:" + log.map(function (e) { return e.event + "/" + (e.id != null ? e.id : "") + "/" + (e.target != null ? e.target : "") + "/" + (e.selected != null ? e.selected : ""); }).join(";"));
@@ -6727,6 +6733,19 @@ return { normal: s.normal, warn: s.warn, fill: s.fill, label: s.label };
 function isHexColor(v) {
 return typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
 }
+function stripHudComment(raw, strictHex) {
+const s = String(raw || "");
+const reColor = /(?:^|\s)(?:warncolor|color\s+(?:warn|normal|fill|label))\s+(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})(?=\s|#|$)/;
+const m = s.match(reColor);
+if (m) {
+const end = s.indexOf(m[1], m.index) + m[1].length;
+const head = s.slice(0, end), tail = s.slice(end);
+if (strictHex) return (head + tail.replace(/\s+#(?![0-9a-fA-F]{3}$|[0-9a-fA-F]{6}$).*$/, "")).trim();
+return (head + tail.replace(/\s+#.*$/, "")).trim();
+}
+if (strictHex) return s.replace(/\s+#(?![0-9a-fA-F]{3}$|[0-9a-fA-F]{6}$).*$/, "").trim();
+return s.replace(/\s+#.*$/, "").trim();
+}
 function fnv1a(str) {
 let h = 2166136261;
 const s = String(str);
@@ -6744,7 +6763,9 @@ if (a === "top") return { place: "top left", used: 1 };
 if (a === "bottom") return { place: "bottom left", used: 1 };
 return { error: "place needs top left | top right | bottom left | bottom right | top | bottom", used: 0 };
 }
-function parse(text) {
+function parse(text, opt) {
+opt = opt || {};
+let strictHex = !!opt.strictHex;
 const S = {
 tick: DEFAULT_STEP,
 safe: { l: DEFAULT_SAFE, t: DEFAULT_SAFE, r: DEFAULT_SAFE, b: DEFAULT_SAFE },
@@ -6752,17 +6773,24 @@ safeSet: false,
 widgets: [],
 colors: copyColors(),
 errors: [],
+strictHex: strictHex,
 bytes: String(text || "").length
 };
 const lines = String(text || "").split(/\n/);
 let cur = null;
 for (let li = 0; li < lines.length; li++) {
-const line = lines[li].replace(/\s+#(?![0-9a-fA-F]{3}$|[0-9a-fA-F]{6}$).*$/, "").trim();
+const line = stripHudComment(lines[li], strictHex);
 if (!line || line.charAt(0) === "#") continue;
 const t = line.split(/\s+/);
 const err = function (m) { S.errors.push("line " + (li + 1) + ": " + m); if (cur) cur.bad = true; };
 const w0 = t[0];
-if (w0 === "tick") {
+if (w0 === "stricthex") {
+if (t.length === 1 || (t.length === 2 && (t[1] === "on" || t[1] === "off"))) {
+strictHex = t[1] !== "off";
+S.strictHex = strictHex;
+} else err("stricthex is a flag (optional on or off)");
+cur = null;
+} else if (w0 === "tick") {
 if (t[1] && t[1].indexOf("/") >= 0) {
 const p = t[1].split("/");
 S.tick = (+p[0]) / (+p[1] || 1);
@@ -6828,6 +6856,7 @@ if (w.bad) return false;
 const prefix = "line " + w.line + ":";
 return !S.errors.some(function (e) { return e.indexOf(prefix) === 0; });
 });
+S.strictHex = strictHex;
 return S;
 }
 function applyColorLine(dest, t, start, err) {
@@ -6893,7 +6922,7 @@ err("unknown word " + w);
 }
 function create(specOrText, opt) {
 opt = opt || {};
-const spec = typeof specOrText === "string" ? parse(specOrText) : (specOrText || parse(""));
+const spec = typeof specOrText === "string" ? parse(specOrText, opt) : (specOrText || parse("", opt));
 const binds = {};
 let lastW = 0, lastH = 0;
 const colors = copyColors(spec.colors);
@@ -7288,8 +7317,8 @@ if (id === "pause" && ST.scene === "play") { M.open(SCREEN.paused); drain(); ret
 if (ST.scene in SCREEN) { const i = rows().findIndex(r => rowId(r) === id); if (i >= 0) { choose(i); return; } }
 press0(id);
 };
-function menuRows(y) {
-const R = rows(), f = M.focus(), per = R.length > 4 ? 3 : R.length, B = SH.bindings();
+function menuRows(y, list) {
+const R = list || rows(), f = M.focus(), per = R.length > 4 ? 3 : R.length, B = SH.bindings();
 for (let i = 0; i < R.length; i += per) {
 y = ST.row(R.slice(i, i + per).map((r, k) => {
 let label = String(r.label).toUpperCase(); const a = (r.actions || []).find(x => x.type === "emit" && x.name === "rebind" && x.arg);
@@ -7298,6 +7327,15 @@ return { id: rowId(r), label: label, on: i + k === f };
 }), y) + 8;
 }
 return y;
+}
+function narrowPauseRows() {
+const R = rows();
+const keep = R.filter(r => {
+const id = rowId(r);
+if (id === "resume" || id === "menu") return true;
+return (r.actions || []).some(a => a.type === "emit" && (a.name === "resume" || a.name === "menu"));
+});
+return keep.length ? keep : R;
 }
 const title0 = ST.drawTitle;
 ST.drawTitle = () => {
@@ -7312,7 +7350,8 @@ if (T.footer) { const f = T.footer(); if (f) ST.text(f, ST.cw / 2, y + 8, ST.the
 ST.drawPaused = () => {
 ST.veil(0.72); const y = ST.small ? 56 : 90, v = M.view();
 ST.text(String(v.title || "PAUSED").toUpperCase(), ST.cw / 2, y, ST.theme.on, ST.fs * 1.5, "c");
-menuRows(y + 7 * ST.fs * 1.5 + 14);
+const list = (ST.small && M.top() === SCREEN.paused) ? narrowPauseRows() : undefined;
+menuRows(y + 7 * ST.fs * 1.5 + 14, list);
 };
 ST.drawOver = () => {
 const o = ST.overInfo || { title: "GAME OVER", lines: [] }, big = ST.fs * 1.5;

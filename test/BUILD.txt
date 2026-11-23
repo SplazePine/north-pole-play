@@ -1,20 +1,22 @@
-North Pole — TEST build, walk-bug fix (workshop df4da59)
-America/Chicago (CST). Exported Sunday Nov 22, 2026, about 10:40 AM CST.
+North Pole — TEST build, Game Wizard / Starter v1.63 (workshop 5c3bb81)
+America/Chicago (CST). Exported Monday Nov 23, 2026, about 5:50 PM CST.
 
 THIS IS A TEST LINK, not the live game.
   Playable at: https://splazepine.github.io/north-pole-play/test/
-  Workshop commit: df4da59 (walk-bug fix, Splaze "fix walk bug" t2180u)
-  Player sha256: 568fe930a6ef7a1bcf80cda5f0d63986cf0273904578c8d976a031e47e381cfe
+  Workshop commit: 5c3bb81 (official hud/pick/shell copies on branch
+    wizard-v163; results tip f285396). Splaze "ya" t2195u.
+  Player sha256: 0d522998f554ac98f2e126e200da1272560429de26d1e773dd622eca97a4996f
   card.png sha256: c43c0c599284978279e61d4013ef42e2c46400b1c66b7894eb52b73d8a471a69
   title.webp sha256: 68414baa98d78f50d5fe9ec28ac9387513c5083855090bd3087b970f038b7a6c
   Live play repo root is unchanged at 4dcd611. This folder only.
 
 What this build is
-  Locked Part 5 plus the walk-off-screen fix: drawFig cancels M.x/M.y
-  so walking figures stay on screen at their feet. Card line remains
-  PLAY AT SPLAZEGAMES.COM; buttons stay raised. Official Tier 2:
-  robot 99/100 both passes (only the accepted size-budget limiter),
-  Stranger 28/28, walk-visible smoke ok, title about 2.7 s.
+  The locked Part 5 + walk-off-screen fix, rebuilt on the new Game
+  Wizard (Starter v1.63 official spell copies). Look and feel are the
+  same. Official Tier 2: robot 99/100 both passes (only the accepted
+  size-budget limiter, game.html 1,327,061 B), NP Stranger 28/28,
+  smokes ok, title about 2.75 s. Library Stranger stays SPLIT (known
+  painted-PLAY gap).
 
   Unlisted Pages build. index.html and game.html are the player (same
   method as the live 4dcd611 export). noindex is already in the player
@@ -28,4 +30,4 @@ How to play (web)
   Esc deselects, or opens the pause menu when no elf is selected.
 
 Rebuild from source (in the workshop git repo, not required to play)
-  python3 tools/build.py   (at workshop commit df4da59)
+  python3 tools/build.py   (at workshop commit 5c3bb81, branch wizard-v163)
